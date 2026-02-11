@@ -40,11 +40,19 @@ const LeetCodeCalendar: React.FC<SubmissionCalendarProps> = ({
   };
 
   const getColor = (count: number) => {
-    if (count === 0) return "bg-gray-700";
-    if (count <= 2) return "bg-green-800";
-    if (count <= 5) return "bg-green-600";
-    if (count <= 10) return "bg-green-400";
-    return "bg-green-200";
+    if (isDark) {
+      if (count === 0) return "bg-gray-700";
+      if (count <= 2) return "bg-green-800";
+      if (count <= 5) return "bg-green-600";
+      if (count <= 10) return "bg-green-400";
+      return "bg-green-200";
+    }
+
+    if (count === 0) return "bg-gray-200";
+    if (count <= 2) return "bg-green-300";
+    if (count <= 5) return "bg-green-400";
+    if (count <= 10) return "bg-green-500";
+    return "bg-green-700";
   };
 
   const daysOfWeek = ["S", "M", "T", "W", "T", "F", "S"];
@@ -57,7 +65,7 @@ const LeetCodeCalendar: React.FC<SubmissionCalendarProps> = ({
     const endDate = new Date(year, month + 1, 0);
 
     const daysInMonth = [];
-    let currentDate = new Date(startDate);
+    const currentDate = new Date(startDate);
     while (currentDate <= endDate) {
       daysInMonth.push(new Date(currentDate));
       currentDate.setDate(currentDate.getDate() + 1);

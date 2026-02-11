@@ -1,23 +1,40 @@
-let cachedStats = null;
-let lastFetchTime = 0;
+const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 
-// LeetCode username - update this in src/data/info.ts
-const username = "deeedaniel";
+const cache = new Map();
+
+function normalizeUsername(value) {
+  if (typeof value === "string") return value.trim();
+  if (Array.isArray(value) && typeof value[0] === "string") return value[0].trim();
+  return "";
+}
+
+function isValidLeetCodeUsername(username) {
+  return /^[a-zA-Z0-9_-]{1,30}$/.test(username);
+}
 
 export default async function handler(req, res) {
-  const CACHE_TTL = 1000 * 60 * 60; // 1 hour
+  const requested = normalizeUsername(req.query?.username);
+  const username = requested || process.env.LEETCODE_USERNAME || "";
 
-  if (cachedStats && Date.now() - lastFetchTime < CACHE_TTL) {
-    return res.status(200).json({ ...cachedStats, cached: true });
+  if (!username || !isValidLeetCodeUsername(username)) {
+    return res.status(400).json({
+      error: "Invalid LeetCode username",
+      message: "Provide a valid username in query param ?username=...",
+    });
+  }
+
+  const key = username.toLowerCase();
+  const cached = cache.get(key);
+
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return res.status(200).json({ ...cached.data, cached: true });
   }
 
   try {
-    const response = await fetch(
-      `https://leetcode-stats.tashif.codes/${username}`
-    );
+    const response = await fetch(`https://leetcode-stats.tashif.codes/${username}`);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch LeCode stats: ${response.statusText}`);
+      throw new Error(`Failed to fetch LeetCode stats: ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -30,24 +47,26 @@ export default async function handler(req, res) {
       submissionCalendar: data.submissionCalendar,
     };
 
-    cachedStats = stats;
-    lastFetchTime = Date.now();
+    cache.set(key, {
+      data: stats,
+      timestamp: Date.now(),
+    });
 
-    res.status(200).json({ ...stats, cached: false });
+    return res.status(200).json({ ...stats, cached: false });
   } catch (error) {
     console.error("Error fetching LeetCode stats:", error);
 
-    if (cachedStats) {
+    if (cached) {
       return res.status(200).json({
-        ...cachedStats,
+        ...cached.data,
         cached: true,
         warning: "API error, showing cached data",
       });
     }
 
-    res.status(500).json({
+    return res.status(500).json({
       error: "Internal Server Error",
-      message: error.message,
+      message: error instanceof Error ? error.message : "Unknown error",
     });
   }
 }

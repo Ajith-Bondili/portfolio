@@ -1,2577 +1,609 @@
-import React, { useState, useEffect, useRef } from "react";
-import type {
-  NowPlayingData,
-  TopTracksData,
-  LeetCodeData,
-} from "./types/indexs";
 import {
-  experiencesData,
-  projectsData,
-  asciiList,
-  personalInfo,
-} from "./data/info";
-import { Taskbar } from "./components/Taskbar";
-import { HeadphoneOff } from "lucide-react";
-import { Play, Pause, RotateCcw, Pencil, X } from "lucide-react";
-import LeetCodeCalendar from "./components/LeetCodeCalendar";
-import AnimatedEllipsis from "./components/AnimatedEllipsis";
-import { videos } from "./data/info";
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
+import type {
+  GitHubActivityData,
+  LeetCodeData,
+  NowPlayingData,
+} from "./types/indexs";
+import { asciiList, experiencesData, personalInfo, projectsData } from "./data/info";
+import DitherBackground from "./components/effects/DitherBackground";
+import MeWindow from "./components/windows/MeWindow";
+import ExperienceWindow from "./components/windows/ExperienceWindow";
+import ProjectsWindow from "./components/windows/ProjectsWindow";
+import CodingWindow from "./components/windows/CodingWindow";
+import CliWindow from "./components/windows/CliWindow";
+import MusicMini from "./components/widgets/MusicMini";
+import Taskbar from "./components/Taskbar";
 
-const App = () => {
+type WindowKey = "me" | "experience" | "projects" | "coding" | "music" | "cli";
+type ExpandKey = "" | "me" | "experience" | "projects" | "coding";
+type DataStatus = "loading" | "live" | "cached" | "degraded";
+
+type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+const WINDOW_ORDER: WindowKey[] = [
+  "me",
+  "experience",
+  "projects",
+  "coding",
+  "music",
+  "cli",
+];
+
+function stripHtml(raw: string) {
+  return raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function inferStatus(
+  payload: { cached?: boolean; warning?: string } | null,
+  fallback: DataStatus = "degraded",
+): DataStatus {
+  if (!payload) return fallback;
+  if (payload.warning) return "degraded";
+  if (payload.cached) return "cached";
+  return "live";
+}
+
+function App() {
   const [theme, setTheme] = useState<"dark" | "light">(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("theme");
-      if (saved === "dark" || saved === "light") return saved;
+    if (typeof window === "undefined") return "dark";
 
-      // Check OS theme preference if no saved preference
-      if (
-        window.matchMedia &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches
-      ) {
-        return "dark";
-      } else {
-        return "light";
-      }
+    const stored = localStorage.getItem("theme");
+    if (stored === "dark" || stored === "light") {
+      return stored;
     }
-    return "dark";
+
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   });
+
   const [time, setTime] = useState(new Date());
-
-  // const [count, setCount] = useState(0);
-  const [selectedAscii, setSelectedAscii] = useState(String); // picked ascii art
-  const [expandWindow, setExpandWindow] = useState(String); // which window is expanded
-  const [selectedWindow, setSelectedWindow] = useState("me"); // which window is selected
-
-  const [nowPlaying, setNowPlaying] = useState<NowPlayingData | null>(null); // now playing on spotify
-  const [topTracks, setTopTracks] = useState<TopTracksData | null>(null); // top tracks on spotify
-  const [leetCode, setLeetCode] = useState<LeetCodeData | null>(null); // leetcode stats
-  // const [currentIndex, setCurrentIndex] = useState(0);
-
-  const [experienceIndex, setExperienceIndex] = useState(0); // index of experience
-  const [projectIndex, setProjectIndex] = useState(0); // index of project
-  const [selectProject, setSelectProject] = useState(""); // selected project
-  const [selectExperience, setSelectExperience] = useState(""); // selected experience
-  const [selectedLinkIndex, setSelectedLinkIndex] = useState(0); // index of selected link within project
-  const [selectedExperienceLinkIndex, setSelectedExperienceLinkIndex] =
-    useState(0); // index of selected link within experience
-
-  const [hoveredExperienceIndex, setHoveredExperienceIndex] = useState<
-    number | null
-  >(null);
-  const [hoveredProjectIndex, setHoveredProjectIndex] = useState<number | null>(
-    null,
+  const [selectedAscii] = useState(
+    asciiList[Math.floor(Math.random() * Math.max(1, asciiList.length))] || "",
   );
 
-  // cli
+  const [selectedWindow, setSelectedWindow] = useState<WindowKey>("me");
+  const [expandWindow, setExpandWindow] = useState<ExpandKey>("");
+  const [experienceIndex, setExperienceIndex] = useState(0);
+  const [projectIndex, setProjectIndex] = useState(0);
+
+  const [codingView, setCodingView] = useState<"github" | "leetcode">("github");
+  const [githubActivity, setGithubActivity] = useState<GitHubActivityData | null>(null);
+  const [leetCode, setLeetCode] = useState<LeetCodeData | null>(null);
+  const [githubStatus, setGithubStatus] = useState<DataStatus>("loading");
+  const [leetcodeStatus, setLeetcodeStatus] = useState<DataStatus>("loading");
+
+  const [nowPlaying, setNowPlaying] = useState<NowPlayingData | null>(null);
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const [currentPreviewUrl, setCurrentPreviewUrl] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   const [command, setCommand] = useState("");
   const [lastCommand, setLastCommand] = useState("");
   const [response, setResponse] = useState("");
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [isAsking, setIsAsking] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const meWindowRef = useRef<HTMLDivElement>(null);
+  const isDark = theme === "dark";
+  const [booting, setBooting] = useState(true);
 
-  // timer state
-  const [timerMinutes, setTimerMinutes] = useState(30); // default pomodoro time
-  const [timerSeconds, setTimerSeconds] = useState(0);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [timerMode, setTimerMode] = useState<"work" | "break" | "longBreak">(
-    "work",
-  );
-  const [pomodoroCount, setPomodoroCount] = useState(0);
-  const [customMinutes, setCustomMinutes] = useState(30);
-  const [isTimerOpen, setIsTimerOpen] = useState(false);
-  const [selectedTimerButton, setSelectedTimerButton] = useState(0); // 0 for start/pause, 1 for reset
-  const [isResumeOpen, setIsResumeOpen] = useState(false);
-  const [isMediaPlayerOpen, setIsMediaPlayerOpen] = useState(false);
-  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const localCommands = useMemo(() => {
+    const aboutSummary = personalInfo.aboutMe
+      .slice(0, 2)
+      .map((line) => stripHtml(line))
+      .join(" ");
+    const experienceSummary = experiencesData
+      .slice(0, 3)
+      .map((item) => `${item.title} (${item.date})`)
+      .join(" | ");
+    const projectsSummary = projectsData
+      .slice(0, 3)
+      .map((item) => item.title)
+      .join(" | ");
 
-  // audio
-  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(
-    null,
-  );
-  const [isPlayingPreview, setIsPlayingPreview] = useState(false);
-  const [currentPreviewUrl, setCurrentPreviewUrl] = useState<string | null>(
-    null,
-  );
-
-  // Add this near your other CLI state variables (around line 29)
-  const [chatHistory, setChatHistory] = useState<
-    Array<{ role: "user" | "assistant"; content: string }>
-  >([]);
-
-  // pick random ascii art
-  useEffect(() => {
-    // if (count % 10 == 0) {
-    setSelectedAscii(asciiList[Math.floor(Math.random() * asciiList.length)]);
-    //}
+    return {
+      about: aboutSummary,
+      experience: experienceSummary,
+      projects: projectsSummary,
+      skills:
+        "python, typescript, java, pytorch, react, node.js, rails, kafka, postgres, docker, and ai/llm systems.",
+      goals:
+        "build thoughtful ai products, level up as an engineer, and ship impactful systems with clean ux.",
+      funfact:
+        "i enjoy blending minimal design with technical depth and keyboard-first experiences.",
+      contact: `${personalInfo.email} | github: ${personalInfo.socialLinks.github} | linkedin: ${personalInfo.socialLinks.linkedin}`,
+      help: "available commands: about, experience, projects, skills, goals, funfact, contact",
+    } as const;
   }, []);
 
   useEffect(() => {
-    fetchNowPlaying().then((data) => setNowPlaying(data));
-  }, []);
-
-  useEffect(() => {
-    fetchLeetCode().then((data) => setLeetCode(data));
-  }, []);
-
-  // update time every second
-  useEffect(() => {
-    setInterval(() => {
+    const intervalId = window.setInterval(() => {
       setTime(new Date());
     }, 1000);
+
+    return () => window.clearInterval(intervalId);
   }, []);
 
-  // handle keyboard navigation between list of exp & projs
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (isResumeOpen || isMediaPlayerOpen) return;
+    const timeout = window.setTimeout(() => {
+      setBooting(false);
+    }, 700);
 
-      if (selectedWindow === "me") {
-        if (e.key === "Enter") {
-          setExpandWindow("me");
-        }
+    return () => window.clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      const saved = localStorage.getItem("theme");
+      if (saved !== "dark" && saved !== "light") {
+        setTheme(event.matches ? "dark" : "light");
       }
-      if (expandWindow === "me") {
-        if (e.key === "Enter") {
-          setExpandWindow("");
-        } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-          e.preventDefault();
-          if (meWindowRef.current) {
-            const scrollAmount = 50; // pixels to scroll
-            if (e.key === "ArrowUp") {
-              meWindowRef.current.scrollTop -= scrollAmount;
-            } else {
-              meWindowRef.current.scrollTop += scrollAmount;
-            }
+    };
+
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
+  useEffect(() => {
+    async function fetchCodingData() {
+      setGithubStatus("loading");
+      setLeetcodeStatus("loading");
+
+      const githubUrl = `/api/github-activity?username=${encodeURIComponent(
+        personalInfo.githubUsername,
+      )}`;
+      const leetUrl = `/api/leetcode?username=${encodeURIComponent(
+        personalInfo.leetcodeUsername,
+      )}`;
+
+      const [githubResult, leetResult] = await Promise.allSettled([
+        fetch(githubUrl).then(async (res) => {
+          const payload = (await res.json()) as GitHubActivityData;
+          if (!res.ok) {
+            throw new Error((payload as { message?: string }).message || "GitHub activity fetch failed");
+          }
+          return payload;
+        }),
+        fetch(leetUrl).then(async (res) => {
+          const payload = (await res.json()) as LeetCodeData;
+          if (!res.ok) {
+            throw new Error((payload as { message?: string }).message || "LeetCode fetch failed");
+          }
+          return payload;
+        }),
+      ]);
+
+      if (githubResult.status === "fulfilled") {
+        setGithubActivity(githubResult.value);
+        setGithubStatus(inferStatus(githubResult.value, "live"));
+      } else {
+        console.error(githubResult.reason);
+        setGithubStatus("degraded");
+      }
+
+      if (leetResult.status === "fulfilled") {
+        setLeetCode(leetResult.value);
+        setLeetcodeStatus(inferStatus(leetResult.value, "live"));
+      } else {
+        console.error(leetResult.reason);
+        setLeetcodeStatus("degraded");
+      }
+    }
+
+    void fetchCodingData();
+  }, []);
+
+  useEffect(() => {
+    async function fetchNowPlaying() {
+      try {
+        const response = await fetch("/api/now-playing");
+        if (!response.ok) return;
+        const payload = (await response.json()) as NowPlayingData;
+        setNowPlaying(payload);
+      } catch (error) {
+        console.error("now playing fetch failed", error);
+      }
+    }
+
+    void fetchNowPlaying();
+    const intervalId = window.setInterval(() => {
+      void fetchNowPlaying();
+    }, 60000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isTypingTarget = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA";
+
+      if (event.key === "Escape" && expandWindow) {
+        setExpandWindow("");
+        return;
+      }
+
+      if (expandWindow) {
+        if (selectedWindow === "coding") {
+          if (event.key === "ArrowUp" || event.key === "ArrowDown" || event.key === "Tab") {
+            event.preventDefault();
+            setCodingView((prev) => (prev === "github" ? "leetcode" : "github"));
           }
         }
+
+        if (selectedWindow === "experience") {
+          if (event.key === "ArrowUp") {
+            event.preventDefault();
+            setExperienceIndex((prev) => (prev - 1 + experiencesData.length) % experiencesData.length);
+          } else if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setExperienceIndex((prev) => (prev + 1) % experiencesData.length);
+          }
+        }
+
+        if (selectedWindow === "projects") {
+          if (event.key === "ArrowUp") {
+            event.preventDefault();
+            setProjectIndex((prev) => (prev - 1 + projectsData.length) % projectsData.length);
+          } else if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setProjectIndex((prev) => (prev + 1) % projectsData.length);
+          }
+        }
+
+        return;
       }
-      if (selectedWindow === "music") {
-        if (e.key === "Enter") {
-          setExpandWindow("music");
+
+      if (isTypingTarget && selectedWindow === "cli") {
+        return;
+      }
+
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        event.preventDefault();
+        const currentIndex = WINDOW_ORDER.indexOf(selectedWindow);
+
+        if (event.key === "ArrowRight") {
+          setSelectedWindow(WINDOW_ORDER[(currentIndex + 1) % WINDOW_ORDER.length]);
+        } else {
+          setSelectedWindow(
+            WINDOW_ORDER[(currentIndex - 1 + WINDOW_ORDER.length) % WINDOW_ORDER.length],
+          );
         }
       }
-      if (expandWindow === "music") {
-        if (e.key === "Enter") {
-          setExpandWindow("");
-        }
-      }
+
       if (selectedWindow === "experience") {
-        if (selectExperience) {
-          // Navigation within expanded experience (for links)
-          const selectedExperienceData = experiencesData.find(
-            (exp) => exp.title === selectExperience,
-          );
-          if (selectedExperienceData) {
-            const totalItems = selectedExperienceData.links.length + 1; // +1 for "back to experiences" button
-
-            if (e.key === "ArrowUp") {
-              e.preventDefault();
-              setSelectedExperienceLinkIndex(
-                (prev) => (prev - 1 + totalItems) % totalItems,
-              );
-            } else if (e.key === "ArrowDown") {
-              e.preventDefault();
-              setSelectedExperienceLinkIndex((prev) => (prev + 1) % totalItems);
-            } else if (e.key === "Enter") {
-              e.preventDefault();
-              if (
-                selectedExperienceLinkIndex <
-                selectedExperienceData.links.length
-              ) {
-                // Navigate to selected link
-                window.open(
-                  selectedExperienceData.links[selectedExperienceLinkIndex].url,
-                  "_blank",
-                );
-              } else {
-                // "back to experiences" button selected
-                setSelectExperience("");
-                setExpandWindow("");
-              }
-            }
-          }
-        } else {
-          // Navigation between experiences (existing code)
-          if (e.key === "ArrowUp") {
-            setExperienceIndex((prev) => {
-              const newIndex =
-                prev === 0 ? experiencesData.length - 1 : prev - 1;
-              setHoveredExperienceIndex(newIndex);
-              return newIndex;
-            });
-          } else if (e.key === "ArrowDown") {
-            setExperienceIndex((prev) => {
-              const newIndex = (prev + 1) % experiencesData.length;
-              setHoveredExperienceIndex(newIndex);
-              return newIndex;
-            });
-          } else if (e.key === "Enter") {
-            setSelectExperience(experiencesData[experienceIndex].title);
-            console.log("hello");
-            setExpandWindow("experience");
-          }
-        }
-      } else if (selectedWindow === "projects") {
-        if (selectProject) {
-          // Navigation within expanded project (for links)
-          const selectedProjectData = projectsData.find(
-            (p) => p.title === selectProject,
-          );
-          if (selectedProjectData) {
-            const totalItems = selectedProjectData.links.length + 1; // +1 for "back to projects" button
-
-            if (e.key === "ArrowUp") {
-              e.preventDefault();
-              setSelectedLinkIndex(
-                (prev) => (prev - 1 + totalItems) % totalItems,
-              );
-            } else if (e.key === "ArrowDown") {
-              e.preventDefault();
-              setSelectedLinkIndex((prev) => (prev + 1) % totalItems);
-            } else if (e.key === "Enter") {
-              e.preventDefault();
-              if (selectedLinkIndex < selectedProjectData.links.length) {
-                // Navigate to selected link
-                window.open(
-                  selectedProjectData.links[selectedLinkIndex].url,
-                  "_blank",
-                );
-              } else {
-                // "back to projects" button selected
-                setSelectProject("");
-                setExpandWindow("");
-              }
-            }
-          }
-        } else {
-          // Navigation between projects (existing code)
-          if (e.key === "ArrowUp") {
-            setProjectIndex((prev) => {
-              const newIndex = prev === 0 ? projectsData.length - 1 : prev - 1;
-              setHoveredProjectIndex(newIndex);
-              return newIndex;
-            });
-          } else if (e.key === "ArrowDown") {
-            setProjectIndex((prev) => {
-              const newIndex = (prev + 1) % projectsData.length;
-              setHoveredProjectIndex(newIndex);
-              return newIndex;
-            });
-          } else if (e.key === "Enter") {
-            setSelectProject(projectsData[projectIndex].title);
-            setExpandWindow("projects");
-          }
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          setExperienceIndex((prev) => (prev - 1 + experiencesData.length) % experiencesData.length);
+        } else if (event.key === "ArrowDown") {
+          event.preventDefault();
+          setExperienceIndex((prev) => (prev + 1) % experiencesData.length);
         }
       }
-      if (selectedWindow === "leetcode") {
-        if (e.key === "Enter") {
-          setExpandWindow("leetcode");
+
+      if (selectedWindow === "projects") {
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          setProjectIndex((prev) => (prev - 1 + projectsData.length) % projectsData.length);
+        } else if (event.key === "ArrowDown") {
+          event.preventDefault();
+          setProjectIndex((prev) => (prev + 1) % projectsData.length);
         }
       }
-      if (expandWindow === "leetcode") {
-        if (e.key === "Enter") {
-          setExpandWindow("");
+
+      if (selectedWindow === "coding") {
+        if (event.key === "ArrowUp" || event.key === "ArrowDown" || event.key === "Tab") {
+          event.preventDefault();
+          setCodingView((prev) => (prev === "github" ? "leetcode" : "github"));
+        }
+      }
+
+      if (event.key === "Enter") {
+        if (selectedWindow === "cli") {
+          inputRef.current?.focus();
+          return;
+        }
+
+        if (selectedWindow === "me" || selectedWindow === "experience" || selectedWindow === "projects" || selectedWindow === "coding") {
+          setExpandWindow(selectedWindow);
         }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    selectedWindow,
-    expandWindow,
-    experienceIndex,
-    projectIndex,
-    selectProject,
-    selectedLinkIndex,
-    selectExperience,
-    selectedExperienceLinkIndex,
-    isResumeOpen,
-    isMediaPlayerOpen,
-  ]);
+  }, [expandWindow, selectedWindow]);
 
-  // Reset selected link index when project changes - default to "back" button
   useEffect(() => {
-    if (selectProject) {
-      const selectedProjectData = projectsData.find(
-        (p) => p.title === selectProject,
-      );
-      if (selectedProjectData) {
-        // Set to the "back" button index (which is after all links)
-        setSelectedLinkIndex(selectedProjectData.links.length);
-      }
-    } else {
-      setSelectedLinkIndex(0);
+    if (selectedWindow === "cli" && !expandWindow) {
+      inputRef.current?.focus();
     }
-  }, [selectProject]);
+  }, [selectedWindow, expandWindow]);
 
-  // Reset selected experience link index when experience changes - default to "back" button
-  useEffect(() => {
-    if (selectExperience) {
-      const selectedExperienceData = experiencesData.find(
-        (exp) => exp.title === selectExperience,
-      );
-      if (selectedExperienceData) {
-        // Set to the "back" button index (which is after all links)
-        setSelectedExperienceLinkIndex(selectedExperienceData.links.length);
-      }
-    } else {
-      setSelectedExperienceLinkIndex(0);
-    }
-  }, [selectExperience]);
-
-  // Spotify functions
-  async function fetchNowPlaying() {
-    const res = await fetch("/api/now-playing");
-    if (!res.ok) {
-      console.error(await res.text());
-      return null;
-    }
-    return await res.json();
-  }
-
-  // Handle preview playback
-  const handlePreviewClick = (previewUrl: string | null) => {
+  const handlePreviewToggle = (previewUrl: string | null) => {
     if (!previewUrl) return;
 
-    // If clicking the same song that's currently playing, pause it
-    if (
-      audioElement &&
-      currentPreviewUrl === previewUrl &&
-      !audioElement.paused
-    ) {
-      audioElement.pause();
-      setIsPlayingPreview(false);
+    const currentAudio = audioRef.current;
+    if (currentAudio && currentPreviewUrl === previewUrl && !currentAudio.paused) {
+      currentAudio.pause();
+      setIsPreviewPlaying(false);
       return;
     }
 
-    // Stop previous audio if playing
-    if (audioElement) {
-      audioElement.pause();
-      audioElement.currentTime = 0;
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
     }
 
-    // Create and play new audio
-    const audio = new Audio(previewUrl);
-    audio.play();
-    setAudioElement(audio);
-    setIsPlayingPreview(true);
+    const nextAudio = new Audio(previewUrl);
+    audioRef.current = nextAudio;
     setCurrentPreviewUrl(previewUrl);
 
-    // Reset when audio ends
-    audio.onended = () => {
-      setIsPlayingPreview(false);
+    nextAudio
+      .play()
+      .then(() => setIsPreviewPlaying(true))
+      .catch((error) => {
+        console.error("audio preview failed", error);
+        setIsPreviewPlaying(false);
+      });
+
+    nextAudio.onended = () => {
+      setIsPreviewPlaying(false);
       setCurrentPreviewUrl(null);
     };
   };
 
-  async function fetchLeetCode() {
-    const res = await fetch("/api/leetcode");
-    if (!res.ok) {
-      console.error(await res.text());
-      return null;
-    }
-    return await res.json();
-  }
+  const handleCommandKeyDown = async (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
 
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      const now = await fetchNowPlaying();
-      setNowPlaying(now);
-    }, 60000); // every minute
+    const input = command.trim();
+    if (!input) return;
 
-    // Cleanup function to clear the interval when the component unmounts
-    return () => clearInterval(interval);
-  }, []); // Empty dependency array ensures this runs only once on mount
+    setLastCommand(input);
+    setCommand("");
 
-  // Cleanup audio when component unmounts
-  useEffect(() => {
-    return () => {
-      if (audioElement) {
-        audioElement.pause();
-        audioElement.currentTime = 0;
-      }
-    };
-  }, [audioElement]);
+    const normalized = input.toLowerCase();
+    const localResponse =
+      localCommands[normalized as keyof typeof localCommands] ||
+      (normalized === "commands" ? localCommands.help : null);
 
-  useEffect(() => {
-    async function fetchTopTracks() {
-      const res = await fetch("/api/top-tracks"); // on Vercel this resolves to your function
-      if (!res.ok) {
-        console.error(await res.text());
-        return null;
-      }
-      return await res.json();
+    if (localResponse) {
+      setResponse(localResponse);
+      setChatHistory((prev) => [
+        ...prev,
+        { role: "user", content: input },
+        { role: "assistant", content: localResponse },
+      ]);
+      return;
     }
 
-    // Wrap the async call in a function and invoke it
-    (async () => {
-      const top = await fetchTopTracks();
-      setTopTracks(top);
-    })();
-  }, []);
+    setIsAsking(true);
+    setResponse("");
 
-  // ask question to Gemini with client-side streaming
-  // Replace the existing askQuestion function (lines 276-314)
-  async function askQuestion(q: string, onChunk: (chunk: string) => void) {
-    // Build the conversation history including the new question
-    const messages = [...chatHistory, { role: "user" as const, content: q }];
-
-    const res = await fetch("/api/ask", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages }), // Send full conversation instead of just question
-    });
-
-    const data = await res.json();
-    const fullResponse = data.answer;
-
-    // Stream the response word by word for that authentic feel
-    const words = fullResponse.split(" ");
-    let currentText = "";
-
-    for (let i = 0; i < words.length; i++) {
-      const word = words[i];
-      const chunk = (i === 0 ? "" : " ") + word;
-      currentText += chunk;
-      onChunk(chunk);
-
-      // Variable delay based on word length and punctuation for natural feel
-      let delay = 25 + Math.random() * 25; // Base 25-50ms
-
-      // Longer pause after punctuation
-      if (word.includes(".") || word.includes("!") || word.includes("?")) {
-        delay += 200 + Math.random() * 100;
-      } else if (word.includes(",") || word.includes(";")) {
-        delay += 100 + Math.random() * 50;
-      }
-
-      // Shorter delay for short words
-      if (word.length <= 2) {
-        delay *= 0.7;
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, delay));
-    }
-
-    // After streaming is complete, update chat history
-    setChatHistory((prev) => [
-      ...prev,
-      { role: "user", content: q },
-      { role: "assistant", content: fullResponse },
-    ]);
-  }
-
-  // handle command input
-  const handleCommand = async (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && command) {
-      setLastCommand(command);
-      setResponse(""); // Clear previous response
-      setCommand("");
-
-      // Stream the response
-      try {
-        await askQuestion(command, (chunk: string) => {
-          setResponse((prev) => prev + chunk);
-        });
-      } catch (error) {
-        console.error("Error streaming response:", error);
-        setResponse("sorry, something went wrong. try again?");
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (selectedWindow === "cli") {
-      inputRef.current?.focus();
-    } else {
-      inputRef.current?.blur();
-    }
-  }, [selectedWindow]);
-
-  // Auto-focus the expanded me window for keyboard navigation
-  useEffect(() => {
-    if (expandWindow === "me" && meWindowRef.current) {
-      meWindowRef.current.focus();
-    }
-  }, [expandWindow]);
-
-  // theme toggle
-  useEffect(() => {
-    const handler = () =>
-      setTheme((prev) => (prev === "dark" ? "light" : "dark"));
-    window.addEventListener("toggleTheme", handler);
-    return () => window.removeEventListener("toggleTheme", handler);
-  }, []);
-
-  useEffect(() => {
     try {
-      localStorage.setItem("theme", theme);
-    } catch {}
-  }, [theme]);
+      const messages = [...chatHistory, { role: "user" as const, content: input }];
+      const answerResponse = await fetch("/api/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages }),
+      });
 
-  const isDark = theme === "dark";
-  const windowThemeClass = isDark
-    ? "bg-black/80 border border-gray-700"
-    : "bg-[#F6F6F6]/90 border border-gray-300";
-  const gridThemeClass = isDark
-    ? "bg-gray-900/40 border border-gray-700"
-    : "bg-gray-100/60 border border-gray-300";
-  const overlayThemeClass = isDark
-    ? "bg-black/90 border border-gray-700"
-    : "bg-white border border-gray-300";
-  const headerClass = (selected: boolean) =>
-    isDark
-      ? selected
-        ? "bg-white text-black"
-        : "bg-gray-400 text-black"
-      : selected
-      ? "bg-gray-400 text-black"
-      : "bg-gray-200 text-black";
-
-  const focusInput = () => {
-    inputRef.current?.focus();
-  };
-
-  useEffect(() => {
-    // keyboard navigation between for windows using < and >
-
-    if (isResumeOpen || isMediaPlayerOpen) return;
-
-    const windowOrder = isTimerOpen
-      ? ["me", "experience", "projects", "music", "timer", "cli"]
-      : ["me", "experience", "projects", "music", "leetcode", "cli"];
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (expandWindow) return;
-
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        const currentIndex = windowOrder.indexOf(selectedWindow);
-        let nextIndex;
-
-        if (e.key === "ArrowRight") {
-          nextIndex = (currentIndex + 1) % windowOrder.length;
-        } else {
-          // ArrowLeft
-          nextIndex =
-            (currentIndex - 1 + windowOrder.length) % windowOrder.length;
-        }
-
-        setSelectedWindow(windowOrder[nextIndex]);
+      if (!answerResponse.ok) {
+        throw new Error(`AI request failed (${answerResponse.status})`);
       }
-    };
 
-    window.addEventListener("keydown", handleKeyDown);
+      const payload = (await answerResponse.json()) as { answer?: string };
+      const answer = payload.answer || "sorry, i couldn't answer that right now.";
 
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [
-    selectedWindow,
-    expandWindow,
-    isTimerOpen,
-    isResumeOpen,
-    isMediaPlayerOpen,
-  ]);
-
-  // Handle closing timer when it's the selected window
-  useEffect(() => {
-    if (!isTimerOpen && selectedWindow === "timer") {
-      setSelectedWindow("music");
-      setExpandWindow("");
+      setResponse(answer);
+      setChatHistory((prev) => [
+        ...prev,
+        { role: "user", content: input },
+        { role: "assistant", content: answer },
+      ]);
+    } catch (error) {
+      console.error(error);
+      setResponse("something broke on my side. try again in a sec.");
+    } finally {
+      setIsAsking(false);
     }
-  }, [isTimerOpen, selectedWindow]);
-
-  useEffect(() => {
-    let interval: number;
-
-    if (isTimerRunning && (timerMinutes > 0 || timerSeconds > 0)) {
-      interval = setInterval(() => {
-        if (timerSeconds > 0) {
-          setTimerSeconds(timerSeconds - 1);
-        } else if (timerMinutes > 0) {
-          setTimerMinutes(timerMinutes - 1);
-          setTimerSeconds(59);
-        }
-      }, 1000);
-    } else if (isTimerRunning && timerMinutes === 0 && timerSeconds === 0) {
-      // Timer finished
-      setIsTimerRunning(false);
-      playNotificationSound();
-      handleTimerComplete();
-    }
-
-    return () => clearInterval(interval);
-  }, [isTimerRunning, timerMinutes, timerSeconds]);
-
-  // Add timer helper functions
-  const playNotificationSound = () => {
-    // Create audio context for notification sound
-    const audioContext = new (window.AudioContext ||
-      (window as any).webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-
-    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-    oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
-    oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
-
-    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(
-      0.01,
-      audioContext.currentTime + 0.5,
-    );
-
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.5);
   };
-
-  const handleTimerComplete = () => {
-    if (timerMode === "work") {
-      setPomodoroCount((prev) => prev + 1);
-      if (pomodoroCount + 1 >= 4) {
-        setTimerMode("longBreak");
-        setTimerMinutes(15);
-        setPomodoroCount(0);
-      } else {
-        setTimerMode("break");
-        setTimerMinutes(5);
-      }
-    } else {
-      setTimerMode("work");
-      setTimerMinutes(customMinutes);
-    }
-    setTimerSeconds(0);
-  };
-
-  const startTimer = () => setIsTimerRunning(true);
-  const pauseTimer = () => setIsTimerRunning(false);
-  const resetTimer = () => {
-    setIsTimerRunning(false);
-    setTimerMinutes(customMinutes);
-    setTimerSeconds(0);
-    setTimerMode("work");
-    setPomodoroCount(0);
-  };
-
-  const setCustomTimer = (minutes: number) => {
-    setCustomMinutes(minutes);
-    setTimerMinutes(minutes);
-    setTimerSeconds(0);
-    setIsTimerRunning(false);
-  };
-
-  // Add event listener for taskbar timer button
-  useEffect(() => {
-    const handleOpenTimer = () => {
-      setIsTimerOpen(true);
-      setSelectedWindow("timer");
-    };
-
-    window.addEventListener("openTimer", handleOpenTimer);
-    return () => window.removeEventListener("openTimer", handleOpenTimer);
-  }, []);
-
-  // Add event listener for taskbar resume button
-  useEffect(() => {
-    const handleOpenResume = () => {
-      setIsResumeOpen(true);
-    };
-
-    window.addEventListener("openResume", handleOpenResume);
-    return () => window.removeEventListener("openResume", handleOpenResume);
-  }, []);
-
-  // Add event listener for taskbar media player button
-  useEffect(() => {
-    const handleOpenMedia = () => {
-      setIsMediaPlayerOpen(true);
-    };
-
-    window.addEventListener("openMedia", handleOpenMedia);
-    return () => window.removeEventListener("openMedia", handleOpenMedia);
-  }, []);
-
-  // Handle keyboard navigation for resume overlay
-  useEffect(() => {
-    if (!isResumeOpen) return;
-
-    setIsMediaPlayerOpen(false);
-
-    const handleResumeKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setIsResumeOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleResumeKeyDown);
-    return () => window.removeEventListener("keydown", handleResumeKeyDown);
-  }, [isResumeOpen]);
-
-  // Handle keyboard navigation for media player overlay
-  useEffect(() => {
-    if (!isMediaPlayerOpen) return;
-
-    setIsResumeOpen(false);
-
-    const handleMediaKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setIsMediaPlayerOpen(false);
-      } else if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        setCurrentVideoIndex(
-          (prev) => (prev - 1 + videos.length) % videos.length,
-        );
-      } else if (e.key === "ArrowRight") {
-        e.preventDefault();
-        setCurrentVideoIndex((prev) => (prev + 1) % videos.length);
-      } else if (e.key >= "1" && e.key <= "9") {
-        const index = parseInt(e.key) - 1;
-        if (index < videos.length) {
-          setCurrentVideoIndex(index);
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleMediaKeyDown);
-    return () => window.removeEventListener("keydown", handleMediaKeyDown);
-  }, [isMediaPlayerOpen, videos.length]);
-
-  // Prevent background scrolling when window is expanded on mobile
-  useEffect(() => {
-    if (expandWindow) {
-      // Lock body scroll
-      document.body.style.overflow = "hidden";
-      document.body.style.position = "fixed";
-      document.body.style.width = "100%";
-    } else {
-      // Unlock body scroll
-      document.body.style.overflow = "";
-      document.body.style.position = "";
-      document.body.style.width = "";
-    }
-
-    // Cleanup on unmount
-    return () => {
-      document.body.style.overflow = "";
-      document.body.style.position = "";
-      document.body.style.width = "";
-    };
-  }, [expandWindow]);
-
-  // Add this new state variable for expanded timer navigation (near the other timer states around line 45)
-  const [selectedExpandedTimerButton, setSelectedExpandedTimerButton] =
-    useState(0);
-  // 0-2: start/pause, reset, and exit buttons, 3-7: custom timer buttons (5m, 15m, 30m, 45m, 60m)
-
-  // Update the existing timer keyboard navigation useEffect to handle both compact and expanded modes
-  useEffect(() => {
-    if (selectedWindow !== "timer") return;
-
-    const handleTimerKeyDown = (e: KeyboardEvent) => {
-      if (expandWindow === "timer") {
-        // Expanded timer navigation with two levels: start/reset/exit (0-2) and custom timers (3-7)
-        if (e.key === "ArrowUp") {
-          e.preventDefault();
-          // Move between levels: if in custom timers (3-7), go to start/reset/exit level
-          if (selectedExpandedTimerButton >= 3) {
-            setSelectedExpandedTimerButton(0); // Go to start button
-          } else {
-            // If in start/reset/exit level, go to custom timers
-            setSelectedExpandedTimerButton(3); // Go to first custom timer (5m)
-          }
-        } else if (e.key === "ArrowDown") {
-          e.preventDefault();
-          // Move between levels: if in start/reset/exit (0-2), go to custom timers
-          if (selectedExpandedTimerButton <= 2) {
-            setSelectedExpandedTimerButton(3); // Go to first custom timer (5m)
-          } else {
-            // If in custom timers, go to start/reset/exit level
-            setSelectedExpandedTimerButton(0); // Go to start button
-          }
-        } else if (e.key === "ArrowLeft") {
-          e.preventDefault();
-          if (selectedExpandedTimerButton <= 2) {
-            // Navigate within start/reset/exit level (0-2)
-            setSelectedExpandedTimerButton((prev) => (prev - 1 + 3) % 3);
-          } else {
-            // Navigate within custom timer level (3-7)
-            setSelectedExpandedTimerButton((prev) => Math.max(3, prev - 1));
-          }
-        } else if (e.key === "ArrowRight") {
-          e.preventDefault();
-          if (selectedExpandedTimerButton <= 2) {
-            // Navigate within start/reset/exit level (0-2)
-            setSelectedExpandedTimerButton((prev) => (prev + 1) % 3);
-          } else {
-            // Navigate within custom timer level (3-7)
-            setSelectedExpandedTimerButton((prev) => Math.min(7, prev + 1));
-          }
-        } else if (e.key === "Enter") {
-          e.preventDefault();
-          if (selectedExpandedTimerButton === 0) {
-            isTimerRunning ? pauseTimer() : startTimer();
-          } else if (selectedExpandedTimerButton === 1) {
-            resetTimer();
-          } else if (selectedExpandedTimerButton === 2) {
-            setExpandWindow(""); // Exit expanded view
-          } else {
-            // Custom timer buttons (3-7 correspond to [5, 15, 30, 45, 60])
-            const customTimes = [5, 15, 30, 45, 60];
-            const timeIndex = selectedExpandedTimerButton - 3;
-            setCustomTimer(customTimes[timeIndex]);
-          }
-        }
-      } else {
-        // Compact timer navigation (existing code)
-        if (e.key === "ArrowUp") {
-          e.preventDefault();
-          setSelectedTimerButton((prev) => (prev - 1 + 3) % 3); // Navigate through 0, 1, 2
-        } else if (e.key === "ArrowDown") {
-          e.preventDefault();
-          setSelectedTimerButton((prev) => (prev + 1) % 3); // Navigate through 0, 1, 2
-        } else if (e.key === "Enter") {
-          e.preventDefault();
-          if (selectedTimerButton === 0) {
-            isTimerRunning ? pauseTimer() : startTimer();
-          } else if (selectedTimerButton === 1) {
-            resetTimer();
-          } else if (selectedTimerButton === 2) {
-            setExpandWindow("timer"); // Open edit mode
-          }
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleTimerKeyDown);
-    return () => window.removeEventListener("keydown", handleTimerKeyDown);
-  }, [
-    selectedWindow,
-    selectedTimerButton,
-    selectedExpandedTimerButton,
-    isTimerRunning,
-    expandWindow,
-  ]);
-
-  // Add effect to listen for OS theme changes
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.matchMedia) {
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-
-      const handleChange = (e: MediaQueryListEvent) => {
-        // Only update theme if user hasn't manually set a preference
-        const savedTheme = localStorage.getItem("theme");
-        if (!savedTheme) {
-          setTheme(e.matches ? "dark" : "light");
-        }
-      };
-
-      // Listen for changes in OS theme preference
-      mediaQuery.addEventListener("change", handleChange);
-
-      return () => mediaQuery.removeEventListener("change", handleChange);
-    }
-  }, []);
 
   return (
-    <div
-      className={`${
-        isDark
-          ? "bg-black text-white lg:bg-[url('/creation_of_adam.jpeg')]"
-          : "bg-white text-black lg:bg-[url('/creation_of_adam_light.jpg')]"
-      } min-h-screen w-screen flex items-center justify-center py-6 pb-24 lg:py-8 lg:pb-20 bg-fixed bg-cover bg-center overscroll-none`}
-    >
-      {/* Bento box grid */}
-      <div
-        // Line 815 - Update the className
-        className={`relative grid grid-cols-2 lg:grid-cols-4 lg:row-span-4 w-full mx-1 gap-2 rounded-2xl p-1.5 ${gridThemeClass} max-w-6xl 2xl:max-w-7xl 2xl:gap-3 ${
-          isDark ? "shadow-xl" : "shadow-sm"
-        }`}
-      >
-        {/* Main terminal window */}
-        <div
-          className={` ${windowThemeClass} rounded-xl col-span-2 flex flex-col order-1 ${
-            expandWindow ? "opacity-0" : ""
-          } transition-opacity duration-500`}
-          onClick={() => {
-            setSelectedWindow("me");
-            console.log(selectedWindow);
-          }}
-        >
-          <p
-            className={`rounded-t-xl text-sm text-center relative ${headerClass(
-              selectedWindow === "me",
-            )}`}
-          >
-            me - zsh
-            <button className="rounded-full p-1 bg-red-500 absolute right-10 top-1/2 -translate-y-1/2" />
-            <button
-              className="rounded-full p-1 bg-yellow-500 absolute right-6 top-1/2 -translate-y-1/2"
-              onClick={() => setExpandWindow("")}
-            />
-            <button
-              className="rounded-full p-1 bg-green-500 absolute right-2 top-1/2 -translate-y-1/2"
-              onClick={() => setExpandWindow("me")}
-            />
-          </p>
-          <div className="my-auto flex">
-            <p
-              className={`text-[4px] font-mono whitespace-pre min-w-1/2 text-center ${
-                isDark ? "text-blue-100" : "text-[#000000]"
-              }`}
-            >
-              {selectedAscii}
-            </p>
-            <div className="mx-auto  min-w-1/2 mt-2">
-              <p
-                className={`${
-                  isDark ? "text-blue-300" : "text-[#2A8EE0]"
-                } text-sm lg:text-lg`}
-              >
-                {personalInfo.username}@{personalInfo.computerName}
-              </p>
-              <p className="text-[9px] lg:text-sm mb-2">{personalInfo.email}</p>
-              <p className=" ml-4 text-xs lg:text-sm">{personalInfo.title}</p>
-              <p className=" ml-4 text-xs lg:text-sm">
-                {personalInfo.education}
-              </p>
-              {/* <p className=" ml-4 text-xs lg:text-sm">
-                Expected Grad: {personalInfo.graduationYear}
-              </p> */}
-              <p className=" ml-4 text-xs lg:text-sm">
-                {personalInfo.location}
-              </p>
-              <p className=" ml-4 text-xs lg:text-sm">
-                {time.toLocaleTimeString()}
-              </p>
-              <p className=" ml-4 mt-2 text-xs hidden lg:block text-gray-400">
-                <p className="inline-block text-lg">☆</p> try arrows keys &
-                enter!
-              </p>
-              <button
-                className=" ml-4 mt-2 mb-2 text-xs block text-left text-gray-400 underline"
-                onClick={() => {
-                  setExpandWindow("me");
-                }}
-              >
-                about me!
-              </button>
-            </div>
-          </div>
-        </div>
+    <div className={`app-root theme-${theme}`}>
+      <DitherBackground />
 
-        {/* Music */}
-        <div
-          className={` ${windowThemeClass} ${
-            isTimerOpen
-              ? "col-span-2 lg:col-span-1"
-              : "col-span-2 lg:col-span-1 lg:row-span-1"
-          } rounded-xl order-2 ${
-            expandWindow ? "opacity-0" : ""
-          } transition-opacity duration-500`}
-          onClick={() => {
-            setSelectedWindow("music");
-            console.log(selectedWindow);
-          }}
-        >
-          <p
-            className={`rounded-t-xl text-sm text-center relative ${headerClass(
-              selectedWindow === "music",
-            )}`}
-          >
-            music - zsh
-            <button className="rounded-full p-1 bg-red-500 absolute right-10 top-1/2 -translate-y-1/2" />
-            <button className="rounded-full p-1 bg-yellow-500 absolute right-6 top-1/2 -translate-y-1/2" />
-            <button
-              className="rounded-full p-1 bg-green-500 absolute right-2 top-1/2 -translate-y-1/2"
-              onClick={() => setExpandWindow("music")}
-            />
-          </p>
-          <div className="mt-2 mx-4">
-            {nowPlaying && nowPlaying.item ? (
-              <div className="flex items-center">
-                <div className="relative group mr-6">
-                  <img
-                    src={nowPlaying.item.album_image}
-                    alt={nowPlaying.item.album}
-                    className={`w-16 h-16 object-cover rounded-md ${
-                      nowPlaying.item.album === "PARTYNEXTDOOR 4 (P4)" ||
-                      nowPlaying.item.album === "L o s e M y M i n d" ||
-                      nowPlaying.item.album === "VULTURES 1"
-                        ? "blur-sm"
-                        : ""
-                    } ${
-                      nowPlaying.item.preview_url
-                        ? "cursor-pointer hover:opacity-80 transition-opacity"
-                        : ""
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (nowPlaying.item?.preview_url) {
-                        handlePreviewClick(nowPlaying.item.preview_url);
-                      }
-                    }}
-                    title={
-                      nowPlaying.item.preview_url
-                        ? "Click to play preview"
-                        : "No preview available"
-                    }
-                  />
-                  {nowPlaying.item.preview_url && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      {isPlayingPreview &&
-                      currentPreviewUrl === nowPlaying.item.preview_url ? (
-                        <Pause className="w-6 h-6 text-white drop-shadow-lg" />
-                      ) : (
-                        <Play className="w-6 h-6 text-white drop-shadow-lg transition-opacity" />
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <a
-                    className="font-bold truncate hover:underline block"
-                    href={nowPlaying.item.spotify_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {nowPlaying.item.name}
-                  </a>
-                  <p className="text-sm text-gray-400 truncate">
-                    {nowPlaying.item.artists.join(", ")}
-                  </p>
-                  {/* <p className="text-sm text-gray-500">
-                    {nowPlaying.item.album}
-                  </p> */}
-                </div>
-              </div>
-            ) : (
-              <p>
-                <div className="flex items-center">
-                  <HeadphoneOff
-                    className={`w-16 h-16 p-3 rounded-md mr-4 ${
-                      isDark ? "bg-gray-800" : "bg-gray-200"
-                    }`}
-                  />
-                  <div>
-                    <p className="text-xs lg:text-sm font-medium">
-                      loading music...
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      visit my{" "}
-                      <a
-                        href={personalInfo.socialLinks.spotify}
-                        className={`${
-                          isDark ? "text-blue-400" : "text-[#2A8EE0]"
-                        } underline`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        spotify
-                      </a>
-                      !
-                    </p>
-                  </div>
-                </div>
-              </p>
-            )}
-            {topTracks && topTracks.tracks ? (
-              <div className="flex flex-col mb-3">
-                <p
-                  className={`text-sm ${
-                    isDark ? "text-gray-200" : "text-gray-800"
-                  } mt-4`}
-                >
-                  Top Tracks
-                </p>
-                {topTracks.tracks.slice(0, 5).map((track) => (
-                  <div key={track.id} className="flex items-center mt-1.5">
-                    <div className="relative group mr-4">
-                      <img
-                        src={track.album_image}
-                        alt={track.album}
-                        className={`w-8 h-8 object-cover rounded-md ${
-                          track.preview_url
-                            ? "cursor-pointer hover:opacity-80 transition-opacity"
-                            : ""
-                        }`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (track.preview_url) {
-                            handlePreviewClick(track.preview_url);
-                          }
-                        }}
-                        title={
-                          track.preview_url
-                            ? "Click to play preview"
-                            : "No preview available"
-                        }
-                      />
-                      {track.preview_url && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          {isPlayingPreview &&
-                          currentPreviewUrl === track.preview_url ? (
-                            <Pause className="w-4 h-4 text-white drop-shadow-lg" />
-                          ) : (
-                            <Play className="w-4 h-4 text-white drop-shadow-lg transition-opacity" />
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <a
-                      href={track.spotify_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-gray-400 truncate flex-1 min-w-0 hover:underline"
-                    >
-                      {track.name}
-                    </a>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p
-                className={`text-sm text-gray-200 mt-4 ${
-                  isDark ? "text-gray-200" : "text-gray-800"
-                }`}
-              >
-                fetching top tracks...
-              </p>
-            )}
-          </div>
+      <main className="app-content">
+        <div className="workspace-hint" aria-live="polite">
+          {booting ? (
+            <span>
+              loading tty modules<span className="blink-dot">.</span>
+            </span>
+          ) : (
+            <span>
+              active: {selectedWindow}
+              {selectedWindow === "coding" ? ` (${codingView})` : ""}
+              {" · "}←/→ switch · ↑/↓ navigate · enter expand · esc close
+            </span>
+          )}
         </div>
-
-        {/* LeetCode */}
-        {!isTimerOpen && (
-          <div
-            className={` ${windowThemeClass} col-span-2 lg:col-span-1 rounded-xl order-7 row-start-6 lg:row-start-2 ${
-              expandWindow ? "opacity-0" : ""
-            } transition-opacity duration-500`}
-            onClick={() => {
-              setSelectedWindow("leetcode");
-              console.log(selectedWindow);
+        <div className="portfolio-grid">
+          <MeWindow
+            selected={selectedWindow === "me"}
+            expanded={false}
+            className="col-span-2 lg:col-span-2 lg:row-span-2"
+            asciiArt={selectedAscii}
+            timeLabel={time.toLocaleTimeString()}
+            personalInfo={personalInfo}
+            onClick={() => setSelectedWindow("me")}
+            onExpand={() => {
+              setSelectedWindow("me");
+              setExpandWindow("me");
             }}
-          >
-            <p
-              className={`rounded-t-xl text-sm text-center relative ${headerClass(
-                selectedWindow === "leetcode",
-              )}`}
-            >
-              leetcode - zsh
-              <button className="rounded-full p-1 bg-red-500 absolute right-10 top-1/2 -translate-y-1/2" />
-              <button className="rounded-full p-1 bg-yellow-500 absolute right-6 top-1/2 -translate-y-1/2" />
-              <button
-                className="rounded-full p-1 bg-green-500 absolute right-2 top-1/2 -translate-y-1/2"
-                onClick={() => setExpandWindow("leetcode")}
-              />
-            </p>
-            <div className="w-full flex flex-col items-center justify-center my-2">
-              {leetCode && leetCode.totalSolved ? (
-                <div className="flex items-center gap-4">
-                  <a
-                    href={personalInfo.socialLinks.leetcode}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`w-16 h-16 rounded-xl p-1 flex items-center justify-center cursor-pointer ${
-                      isDark ? "bg-gray-100" : "bg-gray-200"
-                    }`}
-                  >
-                    <img
-                      src="/leetcode_color.png"
-                      alt="LeetCode Logo"
-                      className={`w-16 h-16 rounded-xl p-1 object-contain ${
-                        isDark ? "bg-gray-100" : "bg-gray-200"
-                      }`}
-                    />
-                  </a>
-                  <div className="flex-grow">
-                    <p
-                      className={`text-sm font-bold ${
-                        isDark ? "text-white" : "text-gray-800"
-                      }`}
-                    >
-                      total solved: {leetCode.totalSolved}
-                    </p>
-                    <div className="flex flex-col justify-between text-sm">
-                      <p className="text-green-400">
-                        easy: {leetCode.easySolved}
-                      </p>
-                      <p className="text-yellow-400">
-                        medium: {leetCode.mediumSolved}
-                      </p>
-                      <p className="text-red-400">
-                        hard: {leetCode.hardSolved}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <p
-                  className={`text-sm text-gray-200 mt-4 p-4 ${
-                    isDark ? "text-gray-200" : "text-gray-800"
-                  }`}
-                >
-                  fetching leetcode stats...
-                </p>
-              )}
-              {leetCode && leetCode.submissionCalendar && (
-                <LeetCodeCalendar
-                  submissionCalendar={leetCode.submissionCalendar}
-                  isDark={isDark}
-                />
-              )}
-            </div>
-          </div>
-        )}
+          />
 
-        {/* CLI LLM about me */}
-        <div
-          className={`${windowThemeClass} col-span-2 lg:col-span-1 lg:row-span-2 rounded-xl order-3 ${
-            expandWindow ? "opacity-0" : ""
-          } transition-opacity duration-500 flex flex-col min-h-0`}
-          onClick={() => {
-            setSelectedWindow("cli");
-            focusInput();
-          }}
-        >
-          <p
-            className={`rounded-t-xl text-sm text-center relative top-0 ${headerClass(
-              selectedWindow === "cli",
-            )}`}
-          >
-            daniel-code - zsh
-            <button
-              className="rounded-full p-1 bg-red-500 absolute right-10 top-1/2 -translate-y-1/2"
-              onClick={() => setExpandWindow("")}
-            />
-            <button
-              className="rounded-full p-1 bg-yellow-500 absolute right-6 top-1/2 -translate-y-1/2"
-              onClick={() => setExpandWindow("")}
-            />
-            <button
-              className="rounded-full p-1 bg-green-500 absolute right-2 top-1/2 -translate-y-1/2"
-              onClick={() => setExpandWindow("cli")}
-            />
-          </p>
-          <div
-            className="font-mono text-sm flex-grow overflow-y-auto lg:h-0"
-            onClick={focusInput}
-          >
-            {lastCommand && (
-              <>
-                <div className="flex items-center py-2 px-4">
-                  <span className="text-blue-400">❯</span>
-                  <p
-                    className={`ml-2 ${
-                      isDark ? "text-gray-200" : "text-gray-800"
-                    }`}
-                  >
-                    {lastCommand}
-                  </p>
-                </div>
-                {!response && (
-                  <p
-                    className={`${
-                      isDark ? "text-gray-200" : "text-gray-800"
-                    } whitespace-pre-wrap px-4`}
-                  >
-                    hmm
-                    <AnimatedEllipsis />
-                  </p>
-                )}
-                <p
-                  className={`${
-                    isDark ? "text-gray-200" : "text-gray-800"
-                  } whitespace-pre-wrap px-4`}
-                >
-                  {response}
-                </p>
-              </>
-            )}
-            <div className="flex items-center py-2 px-4">
-              <span className="text-blue-400">❯</span>
-              <input
-                ref={inputRef}
-                type="text"
-                value={command}
-                onChange={(e) => setCommand(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleCommand(e);
-                  }
-                }}
-                className={`bg-transparent border-none ${
-                  isDark
-                    ? "text-gray-200 placeholder:text-gray-400"
-                    : "text-gray-800 placeholder:text-gray-400"
-                } w-full focus:outline-none ml-2`}
-                placeholder="ask me anything!"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Experience */}
-        <div
-          className={`${windowThemeClass} col-span-2 lg:col-span-1 rounded-xl order-4 row-start-2 ${
-            expandWindow ? "opacity-0" : ""
-          } transition-opacity duration-500`}
-          onClick={() => {
-            setSelectedWindow("experience");
-            console.log(selectedWindow);
-          }}
-        >
-          <p
-            className={`rounded-t-xl text-sm text-center relative ${headerClass(
-              selectedWindow === "experience",
-            )}`}
-          >
-            experience - zsh
-            <button className="rounded-full p-1 bg-red-500 absolute right-10 top-1/2 -translate-y-1/2" />
-            <button className="rounded-full p-1 bg-yellow-500 absolute right-6 top-1/2 -translate-y-1/2" />
-            <button
-              className="rounded-full p-1 bg-green-500 absolute right-2 top-1/2 -translate-y-1/2"
-              onClick={() => setExpandWindow("experience")}
-            />
-          </p>
-          <div className="my-2 mx-4">
-            {experiencesData.map((experience, index) => {
-              const isHovered = hoveredExperienceIndex === index;
-              const isSelected =
-                index === experienceIndex && hoveredExperienceIndex === null;
-              const shouldHighlight = isHovered || isSelected;
-
-              return (
-                <div
-                  key={index}
-                  className={`rounded-md text-sm lg:text-base transition-all duration-150 cursor-pointer my-2 lg:my-1 ${
-                    shouldHighlight
-                      ? `${
-                          isDark ? "text-white" : "text-gray-800"
-                        } font-bold underline`
-                      : `bg-transparent ${
-                          isDark ? "text-blue-300" : "text-[#75b8eb]"
-                        }`
-                  }`}
-                  onMouseEnter={() => setHoveredExperienceIndex(index)}
-                  onClick={() => {
-                    setExpandWindow("experience");
-                    setSelectExperience(experience.title);
-                  }}
-                >
-                  {experience.title} {shouldHighlight ? " ❮" : ""}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Projects */}
-        <div
-          className={` ${windowThemeClass} col-span-2 lg:col-span-1 rounded-xl order-5 row-start-3 lg:row-start-2 ${
-            expandWindow ? "opacity-0" : ""
-          } transition-opacity duration-500`}
-          onClick={() => {
-            setSelectedWindow("projects");
-            console.log(selectedWindow);
-          }}
-        >
-          <p
-            className={`rounded-t-xl text-sm text-center relative ${headerClass(
-              selectedWindow === "projects",
-            )}`}
-          >
-            projects - zsh
-            <button className="rounded-full p-1 bg-red-500 absolute right-10 top-1/2 -translate-y-1/2" />
-            <button className="rounded-full p-1 bg-yellow-500 absolute right-6 top-1/2 -translate-y-1/2" />
-            <button
-              className="rounded-full p-1 bg-green-500 absolute right-2 top-1/2 -translate-y-1/2"
-              onClick={() => setExpandWindow("projects")}
-            />
-          </p>
-          <div className="mt-2 mx-4">
-            {projectsData.map((project, index) => {
-              const isHovered = hoveredProjectIndex === index;
-              const isSelected =
-                index === projectIndex && hoveredProjectIndex === null;
-              const shouldHighlight = isHovered || isSelected;
-
-              return (
-                <div
-                  key={index}
-                  className={` rounded-md text-sm lg:text-base transition-all duration-150 cursor-pointer my-2 lg:my-1 ${
-                    shouldHighlight
-                      ? `${
-                          isDark ? "text-white" : "text-gray-800"
-                        } font-bold underline`
-                      : `bg-transparent ${
-                          isDark ? "text-blue-300" : "text-[#75b8eb]"
-                        }`
-                  }`}
-                  onMouseEnter={() => setHoveredProjectIndex(index)}
-                  onClick={() => {
-                    setExpandWindow("projects");
-                    setProjectIndex(index);
-                    setSelectProject(project.title);
-                  }}
-                >
-                  {project.title}
-                  {shouldHighlight ? " ❮" : ""}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Timer - only render when open */}
-        {isTimerOpen && (
-          <div
-            className={` ${windowThemeClass} col-span-2 lg:col-span-1 rounded-xl order-6 ${
-              expandWindow ? "opacity-0" : ""
-            } transition-opacity duration-500`}
-            onClick={() => {
-              setSelectedWindow("timer");
-              console.log(selectedWindow);
+          <ExperienceWindow
+            selected={selectedWindow === "experience"}
+            expanded={false}
+            className="col-span-2 lg:col-span-1"
+            experiences={experiencesData}
+            activeIndex={experienceIndex}
+            onSelectIndex={(index) => setExperienceIndex(index)}
+            onClick={() => setSelectedWindow("experience")}
+            onExpand={() => {
+              setSelectedWindow("experience");
+              setExpandWindow("experience");
             }}
-          >
-            <p
-              className={`rounded-t-xl text-sm text-center relative ${headerClass(
-                selectedWindow === "timer",
-              )}`}
-            >
-              pomodoro timer - zsh
-              <button
-                className="rounded-full p-1 bg-red-500 absolute right-10 top-1/2 -translate-y-1/2"
-                onClick={() => setIsTimerOpen(false)}
+          />
+
+          <ProjectsWindow
+            selected={selectedWindow === "projects"}
+            expanded={false}
+            className="col-span-2 lg:col-span-1"
+            projects={projectsData}
+            activeIndex={projectIndex}
+            onSelectIndex={(index) => setProjectIndex(index)}
+            onClick={() => setSelectedWindow("projects")}
+            onExpand={() => {
+              setSelectedWindow("projects");
+              setExpandWindow("projects");
+            }}
+          />
+
+          <CodingWindow
+            selected={selectedWindow === "coding"}
+            expanded={false}
+            isDark={isDark}
+            className="col-span-2 lg:col-span-2"
+            view={codingView}
+            githubData={githubActivity}
+            leetCodeData={leetCode}
+            githubStatus={githubStatus}
+            leetcodeStatus={leetcodeStatus}
+            onSetView={setCodingView}
+            onClick={() => setSelectedWindow("coding")}
+            onExpand={() => {
+              setSelectedWindow("coding");
+              setExpandWindow("coding");
+            }}
+          />
+
+          <MusicMini
+            selected={selectedWindow === "music"}
+            className="col-span-2 lg:col-span-1"
+            nowPlaying={nowPlaying}
+            isPreviewPlaying={isPreviewPlaying}
+            onClick={() => setSelectedWindow("music")}
+            onTogglePreview={handlePreviewToggle}
+          />
+
+          <CliWindow
+            selected={selectedWindow === "cli"}
+            className="col-span-2 lg:col-span-1"
+            command={command}
+            lastCommand={lastCommand}
+            response={response}
+            isLoading={isAsking}
+            inputRef={inputRef}
+            onClick={() => setSelectedWindow("cli")}
+            onCommandChange={setCommand}
+            onCommandKeyDown={(event) => {
+              void handleCommandKeyDown(event);
+            }}
+          />
+        </div>
+      </main>
+
+      {expandWindow ? (
+        <div className="overlay-backdrop" onClick={() => setExpandWindow("")}> 
+          <div className="overlay-window" onClick={(event) => event.stopPropagation()}>
+            {expandWindow === "me" ? (
+              <MeWindow
+                selected={selectedWindow === "me"}
+                expanded
+                asciiArt={selectedAscii}
+                timeLabel={time.toLocaleTimeString()}
+                personalInfo={personalInfo}
+                onClick={() => setSelectedWindow("me")}
+                onExpand={() => undefined}
+                onClose={() => setExpandWindow("")}
               />
-              <button className="rounded-full p-1 bg-yellow-500 absolute right-6 top-1/2 -translate-y-1/2" />
-              <button
-                className="rounded-full p-1 bg-green-500 absolute right-2 top-1/2 -translate-y-1/2"
-                onClick={() => setExpandWindow("timer")}
+            ) : null}
+
+            {expandWindow === "experience" ? (
+              <ExperienceWindow
+                selected={selectedWindow === "experience"}
+                expanded
+                experiences={experiencesData}
+                activeIndex={experienceIndex}
+                onSelectIndex={(index) => setExperienceIndex(index)}
+                onClick={() => setSelectedWindow("experience")}
+                onExpand={() => undefined}
+                onClose={() => setExpandWindow("")}
               />
-            </p>
-            <div className="mt-4 mx-4 flex flex-col items-center justify-center">
-              <div className="text-3xl font-mono mb-2">
-                {String(timerMinutes).padStart(2, "0")}:
-                {String(timerSeconds).padStart(2, "0")}
-              </div>
-              {/* <div className="text-xs text-gray-400 mb-2">
-                {timerMode === "work"
-                  ? "Work Time"
-                  : timerMode === "break"
-                  ? "Short Break"
-                  : "Long Break"}
-              </div> */}
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={isTimerRunning ? pauseTimer : startTimer}
-                  className={`p-1 rounded ${
-                    selectedTimerButton === 0 ? " " : ""
-                  }`}
-                >
-                  {isTimerRunning ? (
-                    <div className="flex items-center gap-2">
-                      <Pause className="w-4 h-4" />
-                      <p
-                        className={
-                          selectedTimerButton === 0 ? "font-bold underline" : ""
-                        }
-                      >
-                        pause
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <Play className="w-4 h-4" />
-                      <p
-                        className={
-                          selectedTimerButton === 0 ? "font-bold underline" : ""
-                        }
-                      >
-                        start
-                      </p>
-                    </div>
-                  )}
-                </button>
-                <button
-                  onClick={resetTimer}
-                  className={`p-1 rounded  ${
-                    selectedTimerButton === 1 ? "" : ""
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <RotateCcw className="w-4 h-4" />
-                    <p
-                      className={
-                        selectedTimerButton === 1 ? "font-bold underline" : ""
-                      }
-                    >
-                      reset
-                    </p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setExpandWindow("timer")}
-                  className={`p-1 rounded ${
-                    selectedTimerButton === 2 ? "" : ""
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Pencil className="w-4 h-4" />
-                    <p
-                      className={
-                        selectedTimerButton === 2 ? "font-bold underline" : ""
-                      }
-                    >
-                      edit
-                    </p>
-                  </div>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+            ) : null}
 
-        {/* Expanded overlay when user clicks */}
-        {expandWindow && (
-          <div className="lg:absolute lg:inset-0 fixed inset-0 z-20 transition-opacity duration-300 lg:h-full h-screen max-h-screen overflow-y-auto flex items-center justify-center lg:items-stretch lg:justify-stretch">
-            {expandWindow === "me" && (
-              <div
-                ref={meWindowRef}
-                className={`w-full h-full lg:w-full lg:h-full max-w-4xl max-h-[90vh] lg:max-w-none lg:max-h-none ${windowThemeClass} rounded-xl overflow-y-auto focus:outline-none relative pb-24 lg:pb-0 overscroll-none`}
-                tabIndex={0}
-              >
-                <p
-                  className={`rounded-t-xl text-sm text-center sticky top-0 left-0 right-0 ${headerClass(
-                    true,
-                  )}`}
-                >
-                  me - zsh
-                  <button
-                    className="rounded-full p-1 bg-red-500 absolute right-10 top-1/2 -translate-y-1/2 cursor-pointer"
-                    onClick={() => setExpandWindow("")}
-                  />
-                  <button
-                    className="rounded-full p-1 bg-yellow-500 absolute right-6 top-1/2 -translate-y-1/2"
-                    onClick={() => setExpandWindow("")}
-                  />
-                  <button
-                    className="rounded-full p-1 bg-green-500 absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer"
-                    onClick={() => setExpandWindow("me")}
-                  />
-                </p>
-                <div className="flex flex-col gap-5 max-w-2xl mx-auto mt-4 mb-10 px-4">
-                  <div className="flex mt-6 justify-between">
-                    <p
-                      className={`text-[4px] ${
-                        isDark ? "text-blue-100" : "text-black"
-                      } font-mono whitespace-pre text-center`}
-                    >
-                      {selectedAscii}
-                    </p>
-                    <div className="mx-auto mt-2">
-                      <p
-                        className={`${
-                          isDark ? "text-blue-300" : "text-[#75b8eb]"
-                        } text-sm lg:text-lg`}
-                      >
-                        {personalInfo.username}@{personalInfo.computerName}
-                      </p>
-                      <p className="text-[9px] lg:text-sm mb-2">
-                        {personalInfo.email}
-                      </p>
-                      <p className=" ml-4 text-xs lg:text-sm">
-                        {personalInfo.title}
-                      </p>
-                      <p className=" ml-4 text-xs lg:text-sm">
-                        {personalInfo.education}
-                      </p>
-                      <p className=" ml-4 text-xs lg:text-sm">
-                        Expected Grad: {personalInfo.graduationYear}
-                      </p>
-                      <p className=" ml-4 text-xs lg:text-sm">
-                        {personalInfo.location}
-                      </p>
-                      <p className=" ml-4 text-xs lg:text-sm">
-                        {time.toLocaleTimeString()}
-                      </p>
-                      <p className=" ml-4 mt-2 text-xs hidden lg:block text-gray-400">
-                        <p className="inline-block text-lg">☆</p> try arrows
-                        keys & enter!
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-5 max-w-2xl mx-auto mt-4 mb-10 px-4 ">
-                  {personalInfo.aboutMe.map((paragraph, index) => (
-                    <p
-                      key={index}
-                      className={`text-gray-200 ${
-                        isDark ? "text-gray-200" : "text-gray-800"
-                      }`}
-                      dangerouslySetInnerHTML={{ __html: paragraph }}
-                    />
-                  ))}
-                  <button
-                    className="text-gray-400 text-left underline"
-                    onClick={() => setExpandWindow("")}
-                  >
-                    back to main page ❮
-                  </button>
-                </div>
-              </div>
-            )}
-            {expandWindow === "experience" && (
-              <>
-                {selectExperience !== "" ? (
-                  <div
-                    className={`w-full h-full lg:w-full lg:h-full max-w-4xl max-h-[90vh] lg:max-w-none lg:max-h-none ${windowThemeClass} rounded-xl overflow-y-auto pb-36 lg:pb-0 overscroll-none`}
-                  >
-                    <p
-                      className={`rounded-t-xl text-sm text-center sticky top-0 ${headerClass(
-                        selectedWindow === "experience",
-                      )}`}
-                    >
-                      {selectExperience}
-                      <button
-                        className="rounded-full p-1 bg-red-500 absolute right-10 top-1/2 -translate-y-1/2 cursor-pointer"
-                        onClick={() => setExpandWindow("")}
-                      />
-                      <button
-                        className="rounded-full p-1 bg-yellow-500 absolute right-6 top-1/2 -translate-y-1/2"
-                        onClick={() => {
-                          setExpandWindow("");
-                          setSelectExperience("");
-                        }}
-                      />
-                      <button className="rounded-full p-1 bg-green-500 absolute right-2 top-1/2 -translate-y-1/2" />
-                    </p>
-                    <div className="m-4">
-                      {(() => {
-                        const selectedExperienceData = experiencesData.find(
-                          (p) => p.title === selectExperience,
-                        );
-                        if (selectedExperienceData) {
-                          return (
-                            <div>
-                              <img
-                                src={selectedExperienceData.image}
-                                alt={selectedExperienceData.title}
-                                className="w-full h-48 object-cover rounded-lg mb-4 max-w-2xl mx-auto"
-                              />
-                              <p
-                                className={`text-gray-300 mt-2 max-w-2xl mx-auto ${
-                                  isDark ? "text-gray-200" : "text-gray-800"
-                                }`}
-                              >
-                                {selectedExperienceData.date}
-                              </p>
-                              <p
-                                className={`text-gray-400 mt-2 max-w-2xl mx-auto ${
-                                  isDark ? "text-gray-200" : "text-gray-800"
-                                }`}
-                              >
-                                {selectedExperienceData.description}
-                              </p>
-                              <div className="mt-4 max-w-2xl mx-auto flex flex-col">
-                                {selectedExperienceData.links.map(
-                                  (link, index) => (
-                                    <a
-                                      href={link.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      key={link.name}
-                                      className={`inline-block  rounded transition-all duration-150 ${
-                                        isDark
-                                          ? "text-gray-200"
-                                          : "text-gray-800"
-                                      } ${
-                                        index === selectedExperienceLinkIndex
-                                          ? " font-bold"
-                                          : ""
-                                      }`}
-                                    >
-                                      {link.name}{" "}
-                                      {index === selectedExperienceLinkIndex
-                                        ? "❮ "
-                                        : ""}
-                                    </a>
-                                  ),
-                                )}
-                                <button
-                                  className={`mt-2 rounded self-start transition-all duration-150 ${
-                                    selectedExperienceLinkIndex ===
-                                    selectedExperienceData.links.length
-                                      ? "font-bold"
-                                      : ""
-                                  }`}
-                                  onClick={() => {
-                                    setSelectExperience("");
-                                    setExpandWindow("");
-                                  }}
-                                >
-                                  back to experiences{" "}
-                                  {selectedExperienceLinkIndex ===
-                                  selectedExperienceData.links.length
-                                    ? "❮ "
-                                    : ""}
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        }
-                        return <p>Experience not found.</p>;
-                      })()}
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    className={`w-full h-full lg:w-full lg:h-full max-w-4xl max-h-[90vh] lg:max-w-none lg:max-h-none ${windowThemeClass} rounded-xl overflow-y-auto overscroll-none`}
-                  >
-                    <p
-                      className={`rounded-t-xl text-sm text-center relative ${headerClass(
-                        selectedWindow === "experience",
-                      )}`}
-                    >
-                      experience - zsh
-                      <button
-                        className="rounded-full p-1 bg-red-500 absolute right-10 top-1/2 -translate-y-1/2"
-                        onClick={() => setExpandWindow("")}
-                      />
-                      <button
-                        className="rounded-full p-1 bg-yellow-500 absolute right-6 top-1/2 -translate-y-1/2"
-                        onClick={() => setExpandWindow("")}
-                      />
-                      <button className="rounded-full p-1 bg-green-500 absolute right-2 top-1/2 -translate-y-1/2" />
-                    </p>
-                    <div className="mt-2 mx-4">
-                      {experiencesData.map((experience, index) => {
-                        const isHovered = hoveredExperienceIndex === index;
-                        const isSelected =
-                          index === experienceIndex &&
-                          hoveredExperienceIndex === null;
-                        const shouldHighlight = isHovered || isSelected;
-
-                        return (
-                          <div
-                            key={index}
-                            className={` rounded-md transition-all duration-150 cursor-pointer ${
-                              shouldHighlight
-                                ? `${
-                                    isDark ? "text-white" : "text-gray-800"
-                                  } font-bold underline`
-                                : `bg-transparent ${
-                                    isDark ? "text-blue-300" : "text-[#75b8eb]"
-                                  }`
-                            }`}
-                            onMouseEnter={() =>
-                              setHoveredExperienceIndex(index)
-                            }
-                            onClick={() =>
-                              setSelectExperience(experience.title)
-                            }
-                          >
-                            {experience.title} {shouldHighlight ? " ❮" : ""}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-            {expandWindow === "projects" && (
-              <>
-                {selectProject !== "" ? (
-                  <div
-                    className={`w-full h-full lg:w-full lg:h-full max-w-4xl max-h-[90vh] lg:max-w-none lg:max-h-none ${windowThemeClass} rounded-xl overflow-y-auto pb-36 lg:pb-0 overscroll-none`}
-                  >
-                    <p
-                      className={`rounded-t-xl text-sm text-center sticky top-0 ${headerClass(
-                        selectedWindow === "projects",
-                      )}`}
-                    >
-                      {
-                        projectsData.find((p) => p.title === selectProject)
-                          ?.window
-                      }
-                      <button
-                        className="rounded-full p-1 bg-red-500 absolute right-10 top-1/2 -translate-y-1/2"
-                        onClick={() => setExpandWindow("")}
-                      />
-                      <button
-                        className="rounded-full p-1 bg-yellow-500 absolute right-6 top-1/2 -translate-y-1/2"
-                        onClick={() => {
-                          setExpandWindow("");
-                          setSelectProject("");
-                        }}
-                      />
-                      <button
-                        className="rounded-full p-1 bg-green-500 absolute right-2 top-1/2 -translate-y-1/2"
-                        onClick={() => setExpandWindow("projects")}
-                      />
-                    </p>
-                    <div className="m-4">
-                      {(() => {
-                        const selectedProjectData = projectsData.find(
-                          (p) => p.title === selectProject,
-                        );
-                        if (selectedProjectData) {
-                          return (
-                            <div>
-                              <img
-                                src={selectedProjectData.image}
-                                alt={selectedProjectData.title}
-                                className="mx-auto h-48 object-contain rounded-lg mb-4"
-                              />
-                              <p
-                                className={`text-gray-300 mt-2 max-w-2xl mx-auto ${
-                                  isDark ? "text-gray-200" : "text-gray-800"
-                                }`}
-                              >
-                                {selectedProjectData.date}
-                              </p>
-                              <p
-                                className={`text-gray-400 mt-2 max-w-2xl mx-auto ${
-                                  isDark ? "text-gray-200" : "text-gray-800"
-                                }`}
-                              >
-                                {selectedProjectData.description}
-                              </p>
-                              <div className="mt-4 max-w-2xl mx-auto flex flex-col">
-                                {selectedProjectData.links.map(
-                                  (link, index) => (
-                                    <a
-                                      href={link.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      key={link.name}
-                                      className={`inline-block ${
-                                        isDark
-                                          ? "text-gray-200"
-                                          : "text-gray-800"
-                                      } rounded transition-all duration-150 ${
-                                        index === selectedLinkIndex
-                                          ? " font-bold"
-                                          : ""
-                                      }`}
-                                    >
-                                      {link.name}{" "}
-                                      {index === selectedLinkIndex ? "❮ " : ""}
-                                    </a>
-                                  ),
-                                )}
-                                <button
-                                  className={`mt-2 max-w-2xl self-start rounded transition-all duration-150 ${
-                                    selectedLinkIndex ===
-                                    selectedProjectData.links.length
-                                      ? " font-bold"
-                                      : ""
-                                  }`}
-                                  onClick={() => {
-                                    setSelectProject("");
-                                    setExpandWindow("");
-                                  }}
-                                >
-                                  back to projects{" "}
-                                  {selectedLinkIndex ===
-                                  selectedProjectData.links.length
-                                    ? "❮ "
-                                    : ""}
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        }
-                        return <p>Project not found.</p>;
-                      })()}
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    className={`w-full h-full lg:w-full lg:h-full max-w-4xl max-h-[90vh] lg:max-w-none lg:max-h-none ${windowThemeClass} rounded-xl overflow-y-auto`}
-                  >
-                    <p
-                      className={`rounded-t-xl text-sm text-center relative ${headerClass(
-                        selectedWindow === "projects",
-                      )}`}
-                    >
-                      projects - zsh
-                      <button
-                        className="rounded-full p-1 bg-red-500 absolute right-10 top-1/2 -translate-y-1/2"
-                        onClick={() => setExpandWindow("")}
-                      />
-                      <button
-                        className="rounded-full p-1 bg-yellow-500 absolute right-6 top-1/2 -translate-y-1/2"
-                        onClick={() => setExpandWindow("")}
-                      />
-                      <button
-                        className="rounded-full p-1 bg-green-500 absolute right-2 top-1/2 -translate-y-1/2"
-                        onClick={() => setExpandWindow("projects")}
-                      />
-                    </p>
-                    <div className="mt-2 mx-4">
-                      {projectsData.map((project, index) => {
-                        const isHovered = hoveredProjectIndex === index;
-                        const isSelected =
-                          index === projectIndex &&
-                          hoveredProjectIndex === null;
-                        const shouldHighlight = isHovered || isSelected;
-
-                        return (
-                          <div
-                            key={index}
-                            className={` rounded-md transition-all duration-150 cursor-pointer ${
-                              shouldHighlight
-                                ? `${
-                                    isDark ? "text-white" : "text-gray-800"
-                                  } font-bold underline`
-                                : `bg-transparent ${
-                                    isDark ? "text-blue-300" : "text-[#75b8eb]"
-                                  }`
-                            }`}
-                            onMouseEnter={() => setHoveredProjectIndex(index)}
-                            onClick={() => setSelectProject(project.title)}
-                          >
-                            {project.title}
-                            {shouldHighlight ? " ❮" : ""}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-            {expandWindow === "music" && (
-              <div
-                className={`w-full h-full lg:w-full lg:h-full max-w-4xl max-h-[90vh] lg:max-w-none lg:max-h-none ${windowThemeClass} rounded-xl overflow-y-auto overscroll-none`}
-              >
-                <p
-                  className={`rounded-t-xl text-sm text-center sticky top-0 ${headerClass(
-                    selectedWindow === "music",
-                  )}`}
-                >
-                  music - zsh
-                  <button
-                    className="rounded-full p-1 bg-red-500 absolute right-10 top-1/2 -translate-y-1/2"
-                    onClick={() => setExpandWindow("")}
-                  />
-                  <button
-                    className="rounded-full p-1 bg-yellow-500 absolute right-6 top-1/2 -translate-y-1/2"
-                    onClick={() => setExpandWindow("")}
-                  />
-                  <button
-                    className="rounded-full p-1 bg-green-500 absolute right-2 top-1/2 -translate-y-1/2"
-                    onClick={() => setExpandWindow("music")}
-                  />
-                </p>
-                <div className="mt-2 mx-4">
-                  {nowPlaying && nowPlaying.item ? (
-                    <div className="flex items-center">
-                      <div className="relative group mr-6">
-                        <img
-                          src={nowPlaying.item.album_image}
-                          alt={nowPlaying.item.album}
-                          className={`w-16 h-16 object-cover rounded-md ${
-                            nowPlaying.item.preview_url
-                              ? "cursor-pointer hover:opacity-80 transition-opacity"
-                              : ""
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (nowPlaying.item?.preview_url) {
-                              handlePreviewClick(nowPlaying.item.preview_url);
-                            }
-                          }}
-                          title={
-                            nowPlaying.item.preview_url
-                              ? "Click to play preview"
-                              : "No preview available"
-                          }
-                        />
-                        {nowPlaying.item.preview_url && (
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            {isPlayingPreview &&
-                            currentPreviewUrl ===
-                              nowPlaying.item.preview_url ? (
-                              <Pause className="w-6 h-6 text-white drop-shadow-lg" />
-                            ) : (
-                              <Play className="w-6 h-6 text-white drop-shadow-lg transition-opacity" />
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <a
-                          href={nowPlaying.item.spotify_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-bold truncate hover:underline"
-                        >
-                          {nowPlaying.item.name}
-                        </a>
-                        <p className="text-sm text-gray-400 truncate">
-                          {nowPlaying.item.artists.join(", ")}
-                        </p>
-                        <p className="text-sm text-gray-500 truncate">
-                          {nowPlaying.item.album}
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <p>
-                      <div className="flex items-center">
-                        <HeadphoneOff
-                          className={`w-16 h-16 p-3 rounded-md mr-4 ${
-                            isDark ? "bg-gray-800" : "bg-gray-200"
-                          }`}
-                        />
-                        <div>
-                          <p className="text-xs lg:text-sm font-medium">
-                            loading music...
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            visit my{" "}
-                            <a
-                              href={personalInfo.socialLinks.spotify}
-                              className="text-blue-400 underline"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              spotify
-                            </a>
-                            !
-                          </p>
-                        </div>
-                      </div>
-                    </p>
-                  )}
-                  {topTracks && topTracks.tracks ? (
-                    <div className="flex flex-col">
-                      <p
-                        className={`text-sm ${
-                          isDark ? "text-gray-200" : "text-gray-800"
-                        } mt-4`}
-                      >
-                        Top Tracks
-                      </p>
-                      {topTracks.tracks.map((track) => (
-                        <div
-                          key={track.id}
-                          className="flex items-center mt-1.5"
-                        >
-                          <div className="relative group mr-4">
-                            <img
-                              src={track.album_image}
-                              alt={track.album}
-                              className={`w-8 h-8 object-cover rounded-md ${
-                                track.preview_url
-                                  ? "cursor-pointer hover:opacity-80 transition-opacity"
-                                  : ""
-                              }`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (track.preview_url) {
-                                  handlePreviewClick(track.preview_url);
-                                }
-                              }}
-                              title={
-                                track.preview_url
-                                  ? "Click to play preview"
-                                  : "No preview available"
-                              }
-                            />
-                            {track.preview_url && (
-                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                {isPlayingPreview &&
-                                currentPreviewUrl === track.preview_url ? (
-                                  <Pause className="w-4 h-4 text-white drop-shadow-lg" />
-                                ) : (
-                                  <Play className="w-4 h-4 text-white drop-shadow-lg transition-opacity" />
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          <a
-                            href={track.spotify_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-gray-400 hover:underline"
-                          >
-                            {track.name}
-                          </a>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p>top tracks loading...</p>
-                  )}
-                </div>
-              </div>
-            )}
-            {expandWindow === "leetcode" && (
-              <div
-                className={`w-full h-full lg:w-full lg:h-full max-w-4xl max-h-[90vh] lg:max-w-none lg:max-h-none ${windowThemeClass} rounded-xl overflow-y-auto overscroll-none`}
-              >
-                <p
-                  className={`${
-                    isDark
-                      ? "text-black bg-white"
-                      : "text-gray-800 bg-[#99A1AF]"
-                  } rounded-t-xl text-sm text-center sticky top-0 z-10`}
-                >
-                  leetcode - zsh
-                  <button
-                    className="rounded-full p-1 bg-red-500 absolute right-10 top-1/2 -translate-y-1/2"
-                    onClick={() => setExpandWindow("")}
-                  />
-                  <button
-                    className="rounded-full p-1 bg-yellow-500 absolute right-6 top-1/2 -translate-y-1/2"
-                    onClick={() => setExpandWindow("")}
-                  />
-                  <button
-                    className="rounded-full p-1 bg-green-500 absolute right-2 top-1/2 -translate-y-1/2"
-                    onClick={() => setExpandWindow("leetcode")}
-                  />
-                </p>
-                <div className="w-full flex flex-col items-center justify-center mt-4">
-                  {leetCode && leetCode.totalSolved ? (
-                    <div className="flex items-center gap-4">
-                      <a
-                        href={personalInfo.socialLinks.leetcode}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`w-16 h-16 rounded-xl p-1 flex items-center justify-center cursor-pointer ${
-                          isDark ? "bg-gray-100" : "bg-gray-200"
-                        }`}
-                      >
-                        <img
-                          src="/leetcode_color.png"
-                          alt="LeetCode Logo"
-                          className={`w-16 h-16 rounded-xl p-1 object-contain ${
-                            isDark ? "bg-gray-100" : "bg-gray-200"
-                          }`}
-                        />
-                      </a>
-
-                      <div className="flex-grow">
-                        <p
-                          className={`text-sm font-bold ${
-                            isDark ? "text-white" : "text-gray-800"
-                          }`}
-                        >
-                          total solved: {leetCode.totalSolved}
-                        </p>
-                        <div className="flex flex-col  justify-between text-sm">
-                          <p className="text-green-400">
-                            easy: {leetCode.easySolved}
-                          </p>
-                          <p className="text-yellow-400">
-                            medium: {leetCode.mediumSolved}
-                          </p>
-                          <p className="text-red-400">
-                            hard: {leetCode.hardSolved}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <p
-                      className={`text-sm text-gray-200 mt-4 ${
-                        isDark ? "text-gray-200" : "text-gray-800"
-                      }`}
-                    >
-                      fetching leetcode stats...
-                    </p>
-                  )}
-                  {leetCode && leetCode.submissionCalendar && (
-                    <div className="min-w-xs lg:min-w-md">
-                      <LeetCodeCalendar
-                        submissionCalendar={leetCode.submissionCalendar}
-                        viewMode="month"
-                        isDark={isDark}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            {expandWindow === "cli" && (
-              <div
-                className={`w-full h-full lg:w-full lg:h-full max-w-4xl max-h-[90vh] lg:max-w-none lg:max-h-none ${windowThemeClass} rounded-xl flex flex-col overflow-y-auto overscroll-none`}
-              >
-                <p
-                  className={`rounded-t-xl text-sm text-center sticky top-0 ${headerClass(
-                    selectedWindow === "cli",
-                  )}`}
-                >
-                  daniel-code - zsh
-                  <button
-                    className="rounded-full p-1 bg-red-500 absolute right-10 top-1/2 -translate-y-1/2"
-                    onClick={() => setExpandWindow("")}
-                  />
-                  <button
-                    className="rounded-full p-1 bg-yellow-500 absolute right-6 top-1/2 -translate-y-1/2"
-                    onClick={() => setExpandWindow("")}
-                  />
-                  <button
-                    className="rounded-full p-1 bg-green-500 absolute right-2 top-1/2 -translate-y-1/2"
-                    onClick={() => setExpandWindow("cli")}
-                  />
-                </p>
-                <div
-                  className="mt-2 mx-4 font-mono text-sm flex-grow overflow-y-auto"
-                  onClick={focusInput}
-                >
-                  {lastCommand && (
-                    <>
-                      <div className="flex items-center">
-                        <span className="text-blue-400">❯</span>
-                        <p
-                          className={`ml-2 ${
-                            isDark ? "text-gray-200" : "text-gray-800"
-                          }`}
-                        >
-                          {lastCommand}
-                        </p>
-                      </div>
-                      {!response && (
-                        <p
-                          className={`${
-                            isDark ? "text-gray-200" : "text-gray-800"
-                          } whitespace-pre-wrap`}
-                        >
-                          hmm
-                          <AnimatedEllipsis />
-                        </p>
-                      )}
-                      <p
-                        className={`${
-                          isDark ? "text-gray-200" : "text-gray-800"
-                        } whitespace-pre-wrap`}
-                      >
-                        {response}
-                      </p>
-                    </>
-                  )}
-                  <div className="flex items-center">
-                    <span className="text-blue-400">❯</span>
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      value={command}
-                      onChange={(e) => setCommand(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          handleCommand(e);
-                        }
-                      }}
-                      className={`bg-transparent border-none ${
-                        isDark
-                          ? "text-gray-200 placeholder:text-gray-400"
-                          : "text-gray-800 placeholder:text-gray-400"
-                      } w-full focus:outline-none ml-2`}
-                      placeholder="ask me anything about myself!"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-            {expandWindow === "timer" && isTimerOpen && (
-              <div
-                className={`w-full h-full lg:w-full lg:h-full max-w-4xl max-h-[90vh] lg:max-w-none lg:max-h-none ${windowThemeClass} rounded-xl flex flex-col overflow-y-auto overscroll-none`}
-              >
-                <p
-                  className={`rounded-t-xl text-sm text-center sticky top-0 ${headerClass(
-                    selectedWindow === "timer",
-                  )}`}
-                >
-                  pomodoro timer - zsh
-                  <button
-                    className="rounded-full p-1 bg-red-500 absolute right-10 top-1/2 -translate-y-1/2"
-                    onClick={() => {
-                      setExpandWindow("");
-                      // setIsTimerOpen(false);
-                    }}
-                  />
-                  <button
-                    className="rounded-full p-1 bg-yellow-500 absolute right-6 top-1/2 -translate-y-1/2"
-                    onClick={() => setExpandWindow("")}
-                  />
-                  <button
-                    className="rounded-full p-1 bg-green-500 absolute right-2 top-1/2 -translate-y-1/2"
-                    onClick={() => setExpandWindow("timer")}
-                  />
-                </p>
-                <div className="flex-grow flex flex-col items-center justify-center p-8">
-                  <div className="text-6xl font-mono mb-4">
-                    {String(timerMinutes).padStart(2, "0")}:
-                    {String(timerSeconds).padStart(2, "0")}
-                  </div>
-                  {/* <div className="text-lg text-gray-400 mb-6">
-                    {timerMode === "work"
-                      ? "Work Time"
-                      : timerMode === "break"
-                      ? "Short Break"
-                      : "Long Break"}
-                  </div> */}
-                  <div className="text-sm text-gray-500 mb-8">
-                    pomodoros completed: {pomodoroCount}/4
-                  </div>
-
-                  <div className="flex gap-4 mb-8">
-                    <button
-                      onClick={isTimerRunning ? pauseTimer : startTimer}
-                      className={`px-6 py-3 rounded-lg flex items-center gap-2 transition-colors ${
-                        selectedExpandedTimerButton === 0 ? "font-bold" : ""
-                      }`}
-                    >
-                      {isTimerRunning ? (
-                        <Pause className="w-5 h-5" />
-                      ) : (
-                        <Play className="w-5 h-5" />
-                      )}
-                      <span
-                        className={
-                          selectedExpandedTimerButton === 0
-                            ? "font-bold underline"
-                            : ""
-                        }
-                      >
-                        {isTimerRunning ? "pause" : "start"}
-                      </span>
-                    </button>
-                    <button
-                      onClick={resetTimer}
-                      className={`px-6 py-3 rounded-lg flex items-center gap-2 transition-colors ${
-                        selectedExpandedTimerButton === 1 ? "" : ""
-                      }`}
-                    >
-                      <RotateCcw className="w-5 h-5" />
-                      <span
-                        className={
-                          selectedExpandedTimerButton === 1
-                            ? "font-bold underline"
-                            : ""
-                        }
-                      >
-                        reset
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => setExpandWindow("")}
-                      className={`px-6 py-3 rounded-lg flex items-center gap-2 transition-colors ${
-                        selectedExpandedTimerButton === 2 ? "" : ""
-                      }`}
-                    >
-                      <X className="w-5 h-5" />
-                      <span
-                        className={
-                          selectedExpandedTimerButton === 2
-                            ? "font-bold underline"
-                            : ""
-                        }
-                      >
-                        exit
-                      </span>
-                    </button>
-                  </div>
-
-                  <div className=" max-w-md">
-                    <p className="text-sm text-gray-400 mb-4">
-                      custom timer (minutes):
-                    </p>
-                    <div className="flex gap-2 mb-4">
-                      {[5, 15, 30, 45, 60].map((minutes, index) => (
-                        <button
-                          key={minutes}
-                          onClick={() => setCustomTimer(minutes)}
-                          className={`px-3 py-2 rounded text-sm transition-colors ${
-                            customMinutes === minutes
-                              ? "font-bold text-blue-300"
-                              : ""
-                          } ${
-                            selectedExpandedTimerButton === index + 3 ? "" : ""
-                          }`}
-                        >
-                          <span
-                            className={
-                              selectedExpandedTimerButton === index + 3
-                                ? "font-bold underline"
-                                : ""
-                            }
-                          >
-                            {minutes}m
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                    {/* <input
-                      type="number"
-                      min="0"
-                      max="120"
-                      value={customMinutes}
-                      onChange={(e) =>
-                        setCustomTimer(parseInt(e.target.value) || 25)
-                      }
-                      className="w-full p-2 rounded text-center"
-                      placeholder="Custom minutes"
-                    /> */}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Resume overlay window */}
-      {isResumeOpen && (
-        <div
-          className="fixed inset-0 z-30 flex items-center justify-center"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setIsResumeOpen(false);
-            }
-          }}
-        >
-          <div
-            className={`w-full lg:w-1/2 h-[70vh] max-w-4xl max-h-[90vh] ${overlayThemeClass} rounded-xl flex flex-col shadow-sm`}
-          >
-            <div
-              className={`rounded-t-xl text-sm text-center relative ${headerClass(
-                true,
-              )}`}
-            >
-              {personalInfo.resumeFileName}
-              <button
-                className="rounded-full p-1 bg-red-500 absolute right-10 top-1/2 -translate-y-1/2 cursor-pointer hover:bg-red-600 transition-colors"
-                onClick={() => setIsResumeOpen(false)}
+            {expandWindow === "projects" ? (
+              <ProjectsWindow
+                selected={selectedWindow === "projects"}
+                expanded
+                projects={projectsData}
+                activeIndex={projectIndex}
+                onSelectIndex={(index) => setProjectIndex(index)}
+                onClick={() => setSelectedWindow("projects")}
+                onExpand={() => undefined}
+                onClose={() => setExpandWindow("")}
               />
-              <button
-                className="rounded-full p-1 bg-yellow-500 absolute right-6 top-1/2 -translate-y-1/2"
-                onClick={() => setIsResumeOpen(false)}
+            ) : null}
+
+            {expandWindow === "coding" ? (
+              <CodingWindow
+                selected={selectedWindow === "coding"}
+                expanded
+                isDark={isDark}
+                view={codingView}
+                githubData={githubActivity}
+                leetCodeData={leetCode}
+                githubStatus={githubStatus}
+                leetcodeStatus={leetcodeStatus}
+                onSetView={setCodingView}
+                onClick={() => setSelectedWindow("coding")}
+                onExpand={() => undefined}
+                onClose={() => setExpandWindow("")}
               />
-              <button className="rounded-full p-1 bg-green-500 absolute right-2 top-1/2 -translate-y-1/2" />
-            </div>
-            <a
-              href={`/${personalInfo.resumeFileName}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-gray-400 mx-4 mt-4 underline"
-            >
-              click to view in new tab
-            </a>
-            <div className="flex-1 p-4 overflow-hidden">
-              <iframe
-                src={`/${personalInfo.resumeFileName}#view=FitH&zoom=page-fit`}
-                className="w-full h-full rounded-lg border border-gray-600"
-                title={`${personalInfo.name} Resume`}
-              />
-            </div>
+            ) : null}
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* Media Player overlay window */}
-      {isMediaPlayerOpen && (
-        <div
-          className="fixed inset-0 z-30 flex items-center justify-center"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setIsMediaPlayerOpen(false);
-            }
-          }}
-        >
-          <div
-            className={`w-full h-[70vh] max-w-5xl max-h-[90vh] ${overlayThemeClass} rounded-xl flex flex-col shadow-sm`}
-          >
-            <div
-              className={`rounded-t-xl text-sm text-center relative ${headerClass(
-                true,
-              )}`}
-            >
-              {videos[currentVideoIndex].title} - Media Player
-              <button
-                className="rounded-full p-1 bg-red-500 absolute right-10 top-1/2 -translate-y-1/2 cursor-pointer hover:bg-red-600 transition-colors"
-                onClick={() => setIsMediaPlayerOpen(false)}
-              />
-              <button
-                className="rounded-full p-1 bg-yellow-500 absolute right-6 top-1/2 -translate-y-1/2"
-                onClick={() => setIsMediaPlayerOpen(false)}
-              />
-              <button className="rounded-full p-1 bg-green-500 absolute right-2 top-1/2 -translate-y-1/2" />
-            </div>
-            <div className="flex-1 p-4 overflow-hidden flex flex-col">
-              {/* Video Player */}
-              <div className="flex-1 mb-4">
-                <iframe
-                  src={videos[currentVideoIndex].embedUrl}
-                  className="w-full h-full rounded-lg border border-gray-600"
-                  title={videos[currentVideoIndex].title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
-
-              {/* Video Controls */}
-              <div className="rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <button
-                    onClick={() =>
-                      setCurrentVideoIndex(
-                        (prev) => (prev - 1 + videos.length) % videos.length,
-                      )
-                    }
-                    className={`px-4 py-2 rounded-lg transition-colors ${
-                      isDark ? "text-gray-200" : "text-gray-800"
-                    }`}
-                  >
-                    ← previous
-                  </button>
-
-                  {/* <div className="flex gap-2">
-                    {videos.map((_, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setCurrentVideoIndex(index)}
-                        className={`w-3 h-3 rounded-full transition-colors ${
-                          index === currentVideoIndex
-                            ? "bg-white"
-                            : "bg-gray-500"
-                        }`}
-                      />
-                    ))}
-                  </div> */}
-                  {/* <div className="text-xs text-gray-400 text-center">
-                    use ← → arrow keys to switch videos, esc to close
-                  </div> */}
-
-                  <button
-                    onClick={() =>
-                      setCurrentVideoIndex((prev) => (prev + 1) % videos.length)
-                    }
-                    className={`px-4 py-2 rounded-lg transition-colors ${
-                      isDark ? "text-gray-200" : "text-gray-800"
-                    }`}
-                  >
-                    next →
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Taskbar menu */}
-      <Taskbar theme={theme} />
+      <Taskbar
+        theme={theme}
+        onToggleTheme={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+      />
     </div>
   );
-};
+}
 
 export default App;
