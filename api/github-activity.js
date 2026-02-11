@@ -164,6 +164,19 @@ export default async function handler(req, res) {
       },
     });
 
+    if (response.status === 404) {
+      return res.status(200).json({
+        username,
+        totalContributions: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        days: [],
+        cached: false,
+        warning: "GitHub username not found. Update githubUsername in info.ts.",
+        fetchedAt: new Date().toISOString(),
+      });
+    }
+
     if (!response.ok) {
       throw new Error(`GitHub contributions fetch failed: ${response.status}`);
     }

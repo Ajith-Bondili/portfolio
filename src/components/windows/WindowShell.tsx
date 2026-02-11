@@ -43,7 +43,19 @@ export default function WindowShell({
           ) : (
             <span className="dot dot-red" />
           )}
-          <span className="dot dot-yellow" />
+          {onClose ? (
+            <button
+              type="button"
+              className="dot dot-yellow"
+              onClick={(event) => {
+                event.stopPropagation();
+                onClose();
+              }}
+              aria-label={`Minimize ${title}`}
+            />
+          ) : (
+            <span className="dot dot-yellow" />
+          )}
           {onExpand ? (
             <button
               type="button"

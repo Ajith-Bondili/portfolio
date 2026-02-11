@@ -20,6 +20,7 @@ interface ProjectsWindowProps {
   projects: ProjectItem[];
   activeIndex: number;
   onSelectIndex: (index: number) => void;
+  onOpenItem?: (index: number) => void;
   onClick: () => void;
   onExpand: () => void;
   onClose?: () => void;
@@ -32,6 +33,7 @@ export default function ProjectsWindow({
   projects,
   activeIndex,
   onSelectIndex,
+  onOpenItem,
   onClick,
   onExpand,
   onClose,
@@ -54,14 +56,16 @@ export default function ProjectsWindow({
             <button
               type="button"
               key={project.title}
-              onClick={() => onSelectIndex(index)}
+              onClick={() => {
+                onSelectIndex(index);
+                onOpenItem?.(index);
+              }}
               className={`list-row ${index === activeIndex ? "list-row-active" : ""}`}
             >
               <span>{project.title}</span>
               <span className="muted-text">{project.date}</span>
             </button>
           ))}
-          <p className="muted-hint">enter to expand</p>
         </div>
       ) : (
         <div className="split-layout">

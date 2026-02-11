@@ -4,11 +4,11 @@ export const personalInfo = {
   name: "Ajith Bondili",
   username: "ajith", // Used in terminal display (username@computer)
   computerName: "portfolio", // Used in terminal display (username@computer)
-  email: "ajithbondili@gmail.com",
-  title: "ML + Software Engineer",
+  email: "ajith.bondili@uwaterloo.ca",
+  title: "ML + SWE + Agents",
   education: "Computer Science @ University of Waterloo",
-  graduationYear: "2027",
-  location: "Waterloo, ON",
+  graduationYear: "2025",
+  location: "Toronto, ON",
 
   // Resume filename (must be in /public folder)
   resumeFileName: "resume.pdf",
@@ -18,19 +18,19 @@ export const personalInfo = {
     github: "https://github.com/Ajith-Bondili",
     linkedin: "https://www.linkedin.com/in/ajith-bondili/",
     spotify: "https://open.spotify.com",
-    leetcode: "https://leetcode.com/ajithbondili/",
+    leetcode: "https://leetcode.com/Ajxpert/",
   },
 
   // Usernames for API integrations
   githubUsername: "Ajith-Bondili", // Used in /api/github-activity
-  leetcodeUsername: "ajithbondili", // Used in /api/leetcode to fetch your stats
+  leetcodeUsername: "Ajxpert", // Used in /api/leetcode to fetch your stats
 
   // School identity block for "me" section
   school: {
     name: "University of Waterloo",
     program: "B.S. Computer Science",
     graduationYear: "2027",
-    logoDitherPath: "/school_logo_dither.svg",
+    logoDitherPath: "/waterloo_logo.png",
   },
 
   // About Me - Each string is a paragraph

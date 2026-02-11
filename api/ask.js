@@ -38,8 +38,8 @@ export default async function handler(req, res) {
     const conversationMessages = [
       {
         role: "system",
-        content: `you are daniel nguyen chatting inside a terminal portfolio.
-respond as daniel in lowercase, concise, friendly language.
+        content: `you are ajith bondili chatting inside a terminal portfolio.
+respond as ajith in lowercase, concise, friendly language.
 keep answers short: 1-3 sentences unless user explicitly asks for detail.
 no markdown, no emojis, no roleplay disclaimers.
 if asked for available commands, output exactly:
@@ -50,7 +50,10 @@ available commands:
 - skills
 - goals
 - funfact
-- contact`,
+- contact
+- /goto <window>
+- /theme
+- /clear`,
       },
       ...messages,
     ];

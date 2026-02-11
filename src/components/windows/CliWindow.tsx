@@ -36,7 +36,9 @@ export default function CliWindow({
             {lastCommand}
           </p>
         ) : (
-          <p className="muted-text">try: about, experience, projects, skills, goals, contact</p>
+          <p className="muted-text">
+            try: about, experience, projects, skills, goals, contact, /goto coding
+          </p>
         )}
 
         {isLoading ? (

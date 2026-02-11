@@ -42,6 +42,11 @@ function stripHtml(raw: string) {
   return raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function isJsonResponse(response: Response) {
+  const contentType = response.headers.get("content-type") || "";
+  return contentType.includes("application/json");
+}
+
 function inferStatus(
   payload: { cached?: boolean; warning?: string } | null,
   fallback: DataStatus = "degraded",
@@ -119,7 +124,8 @@ function App() {
       funfact:
         "i enjoy blending minimal design with technical depth and keyboard-first experiences.",
       contact: `${personalInfo.email} | github: ${personalInfo.socialLinks.github} | linkedin: ${personalInfo.socialLinks.linkedin}`,
-      help: "available commands: about, experience, projects, skills, goals, funfact, contact",
+      help:
+        "available commands: about, experience, projects, skills, goals, funfact, contact | slash: /goto <window>, /theme, /clear",
     } as const;
   }, []);
 
@@ -171,6 +177,9 @@ function App() {
 
       const [githubResult, leetResult] = await Promise.allSettled([
         fetch(githubUrl).then(async (res) => {
+          if (!isJsonResponse(res)) {
+            throw new Error("GitHub activity endpoint returned non-JSON data.");
+          }
           const payload = (await res.json()) as GitHubActivityData;
           if (!res.ok) {
             throw new Error((payload as { message?: string }).message || "GitHub activity fetch failed");
@@ -178,6 +187,9 @@ function App() {
           return payload;
         }),
         fetch(leetUrl).then(async (res) => {
+          if (!isJsonResponse(res)) {
+            throw new Error("LeetCode endpoint returned non-JSON data.");
+          }
           const payload = (await res.json()) as LeetCodeData;
           if (!res.ok) {
             throw new Error((payload as { message?: string }).message || "LeetCode fetch failed");
@@ -190,7 +202,10 @@ function App() {
         setGithubActivity(githubResult.value);
         setGithubStatus(inferStatus(githubResult.value, "live"));
       } else {
-        console.error(githubResult.reason);
+        const githubError = githubResult.reason;
+        if (!(githubError instanceof Error && githubError.message.includes("non-JSON"))) {
+          console.error(githubError);
+        }
         setGithubStatus("degraded");
       }
 
@@ -198,7 +213,10 @@ function App() {
         setLeetCode(leetResult.value);
         setLeetcodeStatus(inferStatus(leetResult.value, "live"));
       } else {
-        console.error(leetResult.reason);
+        const leetcodeError = leetResult.reason;
+        if (!(leetcodeError instanceof Error && leetcodeError.message.includes("non-JSON"))) {
+          console.error(leetcodeError);
+        }
         setLeetcodeStatus("degraded");
       }
     }
@@ -210,7 +228,7 @@ function App() {
     async function fetchNowPlaying() {
       try {
         const response = await fetch("/api/now-playing");
-        if (!response.ok) return;
+        if (!response.ok || !isJsonResponse(response)) return;
         const payload = (await response.json()) as NowPlayingData;
         setNowPlaying(payload);
       } catch (error) {
@@ -239,6 +257,26 @@ function App() {
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       const isTypingTarget = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA";
+
+      if (
+        selectedWindow === "cli" &&
+        isTypingTarget &&
+        (event.key === "ArrowLeft" || event.key === "ArrowRight")
+      ) {
+        event.preventDefault();
+        const currentIndex = WINDOW_ORDER.indexOf(selectedWindow);
+
+        if (event.key === "ArrowRight") {
+          setSelectedWindow(WINDOW_ORDER[(currentIndex + 1) % WINDOW_ORDER.length]);
+        } else {
+          setSelectedWindow(
+            WINDOW_ORDER[(currentIndex - 1 + WINDOW_ORDER.length) % WINDOW_ORDER.length],
+          );
+        }
+
+        inputRef.current?.blur();
+        return;
+      }
 
       if (event.key === "Escape" && expandWindow) {
         setExpandWindow("");
@@ -381,13 +419,50 @@ function App() {
     const input = command.trim();
     if (!input) return;
 
+    const normalized = input.toLowerCase();
+    if (normalized === "/clear") {
+      setCommand("");
+      setLastCommand("");
+      setResponse("");
+      setChatHistory([]);
+      return;
+    }
+
     setLastCommand(input);
     setCommand("");
 
-    const normalized = input.toLowerCase();
+    if (normalized === "/theme") {
+      const nextTheme = theme === "dark" ? "light" : "dark";
+      setTheme(nextTheme);
+      setResponse(`switched to ${nextTheme} mode.`);
+      setChatHistory((prev) => [
+        ...prev,
+        { role: "user", content: input },
+        { role: "assistant", content: `switched to ${nextTheme} mode.` },
+      ]);
+      return;
+    }
+
+    const gotoMatch = normalized.match(
+      /^\/?(?:goto|switch)\s+(me|experience|projects|coding|music|cli)$/,
+    );
+    if (gotoMatch) {
+      const target = gotoMatch[1] as WindowKey;
+      setSelectedWindow(target);
+      setExpandWindow("");
+      const cliReply = `focused ${target}.`;
+      setResponse(cliReply);
+      setChatHistory((prev) => [
+        ...prev,
+        { role: "user", content: input },
+        { role: "assistant", content: cliReply },
+      ]);
+      return;
+    }
+
     const localResponse =
       localCommands[normalized as keyof typeof localCommands] ||
-      (normalized === "commands" ? localCommands.help : null);
+      (normalized === "commands" || normalized === "/help" ? localCommands.help : null);
 
     if (localResponse) {
       setResponse(localResponse);
@@ -445,7 +520,7 @@ function App() {
             <span>
               active: {selectedWindow}
               {selectedWindow === "coding" ? ` (${codingView})` : ""}
-              {" · "}←/→ switch · ↑/↓ navigate · enter expand · esc close
+              {" · "}←/→ switch · ↑/↓ navigate · enter expand · esc close · 🖱 click open
             </span>
           )}
         </div>
@@ -453,7 +528,7 @@ function App() {
           <MeWindow
             selected={selectedWindow === "me"}
             expanded={false}
-            className="col-span-2 lg:col-span-2 lg:row-span-2"
+            className="col-span-2 lg:col-span-2"
             asciiArt={selectedAscii}
             timeLabel={time.toLocaleTimeString()}
             personalInfo={personalInfo}
@@ -471,6 +546,11 @@ function App() {
             experiences={experiencesData}
             activeIndex={experienceIndex}
             onSelectIndex={(index) => setExperienceIndex(index)}
+            onOpenItem={(index) => {
+              setExperienceIndex(index);
+              setSelectedWindow("experience");
+              setExpandWindow("experience");
+            }}
             onClick={() => setSelectedWindow("experience")}
             onExpand={() => {
               setSelectedWindow("experience");
@@ -485,6 +565,11 @@ function App() {
             projects={projectsData}
             activeIndex={projectIndex}
             onSelectIndex={(index) => setProjectIndex(index)}
+            onOpenItem={(index) => {
+              setProjectIndex(index);
+              setSelectedWindow("projects");
+              setExpandWindow("projects");
+            }}
             onClick={() => setSelectedWindow("projects")}
             onExpand={() => {
               setSelectedWindow("projects");
