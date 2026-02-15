@@ -29,14 +29,23 @@ type ChatMessage = {
   content: string;
 };
 
-const WINDOW_ORDER: WindowKey[] = [
-  "me",
-  "experience",
-  "projects",
-  "coding",
-  "music",
-  "cli",
-];
+const NEXT_WINDOW: Record<WindowKey, WindowKey> = {
+  me: "music",
+  music: "cli",
+  cli: "projects",
+  projects: "coding",
+  coding: "experience",
+  experience: "me",
+};
+
+const PREV_WINDOW: Record<WindowKey, WindowKey> = {
+  me: "experience",
+  experience: "coding",
+  coding: "projects",
+  projects: "cli",
+  cli: "music",
+  music: "me",
+};
 
 function stripHtml(raw: string) {
   return raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -286,14 +295,10 @@ function App() {
         (event.key === "ArrowLeft" || event.key === "ArrowRight")
       ) {
         event.preventDefault();
-        const currentIndex = WINDOW_ORDER.indexOf(selectedWindow);
-
         if (event.key === "ArrowRight") {
-          setSelectedWindow(WINDOW_ORDER[(currentIndex + 1) % WINDOW_ORDER.length]);
+          setSelectedWindow(NEXT_WINDOW[selectedWindow]);
         } else {
-          setSelectedWindow(
-            WINDOW_ORDER[(currentIndex - 1 + WINDOW_ORDER.length) % WINDOW_ORDER.length],
-          );
+          setSelectedWindow(PREV_WINDOW[selectedWindow]);
         }
 
         inputRef.current?.blur();
@@ -342,14 +347,10 @@ function App() {
 
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         event.preventDefault();
-        const currentIndex = WINDOW_ORDER.indexOf(selectedWindow);
-
         if (event.key === "ArrowRight") {
-          setSelectedWindow(WINDOW_ORDER[(currentIndex + 1) % WINDOW_ORDER.length]);
+          setSelectedWindow(NEXT_WINDOW[selectedWindow]);
         } else {
-          setSelectedWindow(
-            WINDOW_ORDER[(currentIndex - 1 + WINDOW_ORDER.length) % WINDOW_ORDER.length],
-          );
+          setSelectedWindow(PREV_WINDOW[selectedWindow]);
         }
       }
 
@@ -561,122 +562,124 @@ function App() {
       <DitherBackground />
 
       <main className="app-content">
-        <div className="workspace-hint" aria-live="polite">
-          {booting ? (
-            <span>
-              loading tty modules<span className="blink-dot">.</span>
-            </span>
-          ) : (
-            <span>
-              active: {selectedWindow}
-              {selectedWindow === "coding" ? ` (${codingView})` : ""}
-              {" · "}←/→ switch · ↑/↓ navigate · enter expand · esc close · 🖱 click open
-            </span>
-          )}
-        </div>
-        <div className="portfolio-grid">
-          <MeWindow
-            selected={selectedWindow === "me"}
-            expanded={false}
-            className="layout-me"
-            asciiArt={selectedAscii}
-            timeLabel={time.toLocaleTimeString()}
-            personalInfo={personalInfo}
-            onClick={() => setSelectedWindow("me")}
-            onExpand={() => {
-              setSelectedWindow("me");
-              setExpandWindow("me");
-            }}
-          />
+        <div className="workspace-shell">
+          <div className="workspace-hint" aria-live="polite">
+            {booting ? (
+              <span>
+                loading tty modules<span className="blink-dot">.</span>
+              </span>
+            ) : (
+              <span>
+                active: {selectedWindow}
+                {selectedWindow === "coding" ? ` (${codingView})` : ""}
+                {" · "}←/→ switch · ↑/↓ navigate · enter expand · esc close · 🖱 click open
+              </span>
+            )}
+          </div>
+          <div className="portfolio-grid">
+            <MeWindow
+              selected={selectedWindow === "me"}
+              expanded={false}
+              className="layout-me"
+              asciiArt={selectedAscii}
+              timeLabel={time.toLocaleTimeString()}
+              personalInfo={personalInfo}
+              onClick={() => setSelectedWindow("me")}
+              onExpand={() => {
+                setSelectedWindow("me");
+                setExpandWindow("me");
+              }}
+            />
 
-          <ExperienceWindow
-            selected={selectedWindow === "experience"}
-            expanded={false}
-            className="layout-experience"
-            experiences={experiencesData}
-            activeIndex={experienceIndex}
-            onSelectIndex={(index) => setExperienceIndex(index)}
-            onOpenItem={(index) => {
-              setExperienceIndex(index);
-              setSelectedWindow("experience");
-              setExpandWindow("experience");
-            }}
-            onClick={() => setSelectedWindow("experience")}
-            onExpand={() => {
-              setSelectedWindow("experience");
-              setExpandWindow("experience");
-            }}
-          />
+            <ExperienceWindow
+              selected={selectedWindow === "experience"}
+              expanded={false}
+              className="layout-experience"
+              experiences={experiencesData}
+              activeIndex={experienceIndex}
+              onSelectIndex={(index) => setExperienceIndex(index)}
+              onOpenItem={(index) => {
+                setExperienceIndex(index);
+                setSelectedWindow("experience");
+                setExpandWindow("experience");
+              }}
+              onClick={() => setSelectedWindow("experience")}
+              onExpand={() => {
+                setSelectedWindow("experience");
+                setExpandWindow("experience");
+              }}
+            />
 
-          <ProjectsWindow
-            selected={selectedWindow === "projects"}
-            expanded={false}
-            className="layout-projects"
-            projects={projectsData}
-            activeIndex={projectIndex}
-            onSelectIndex={(index) => setProjectIndex(index)}
-            onOpenItem={(index) => {
-              setProjectIndex(index);
-              setSelectedWindow("projects");
-              setExpandWindow("projects");
-            }}
-            onClick={() => setSelectedWindow("projects")}
-            onExpand={() => {
-              setSelectedWindow("projects");
-              setExpandWindow("projects");
-            }}
-          />
+            <ProjectsWindow
+              selected={selectedWindow === "projects"}
+              expanded={false}
+              className="layout-projects"
+              projects={projectsData}
+              activeIndex={projectIndex}
+              onSelectIndex={(index) => setProjectIndex(index)}
+              onOpenItem={(index) => {
+                setProjectIndex(index);
+                setSelectedWindow("projects");
+                setExpandWindow("projects");
+              }}
+              onClick={() => setSelectedWindow("projects")}
+              onExpand={() => {
+                setSelectedWindow("projects");
+                setExpandWindow("projects");
+              }}
+            />
 
-          <CodingWindow
-            selected={selectedWindow === "coding"}
-            expanded={false}
-            isDark={isDark}
-            className="layout-coding"
-            view={codingView}
-            githubData={githubActivity}
-            leetCodeData={leetCode}
-            githubStatus={githubStatus}
-            leetcodeStatus={leetcodeStatus}
-            onSetView={setCodingView}
-            onClick={() => setSelectedWindow("coding")}
-            onExpand={() => {
-              setSelectedWindow("coding");
-              setExpandWindow("coding");
-            }}
-          />
+            <CodingWindow
+              selected={selectedWindow === "coding"}
+              expanded={false}
+              isDark={isDark}
+              className="layout-coding"
+              view={codingView}
+              githubData={githubActivity}
+              leetCodeData={leetCode}
+              githubStatus={githubStatus}
+              leetcodeStatus={leetcodeStatus}
+              onSetView={setCodingView}
+              onClick={() => setSelectedWindow("coding")}
+              onExpand={() => {
+                setSelectedWindow("coding");
+                setExpandWindow("coding");
+              }}
+            />
 
-          <MusicMini
-            selected={selectedWindow === "music"}
-            className="layout-music"
-            nowPlaying={nowPlaying}
-            isPreviewPlaying={isPreviewPlaying}
-            onClick={() => setSelectedWindow("music")}
-            onTogglePreview={handlePreviewToggle}
-          />
+            <MusicMini
+              selected={selectedWindow === "music"}
+              className="layout-music"
+              nowPlaying={nowPlaying}
+              isPreviewPlaying={isPreviewPlaying}
+              onClick={() => setSelectedWindow("music")}
+              onTogglePreview={handlePreviewToggle}
+            />
 
-          <CliWindow
-            selected={selectedWindow === "cli"}
-            className="layout-cli"
-            command={command}
-            messages={chatHistory}
-            isLoading={isAsking}
-            suggestions={cliSuggestions}
-            suggestionIndex={suggestionIndex}
-            inputRef={inputRef}
-            onClick={() => setSelectedWindow("cli")}
-            onCommandChange={(value) => {
-              setCommand(value);
-              setSuggestionIndex(0);
-            }}
-            onSuggestionPick={(value) => {
-              setCommand(value);
-              setSuggestionIndex(0);
-              inputRef.current?.focus();
-            }}
-            onCommandKeyDown={(event) => {
-              void handleCommandKeyDown(event);
-            }}
-          />
+            <CliWindow
+              selected={selectedWindow === "cli"}
+              className="layout-cli"
+              command={command}
+              messages={chatHistory}
+              isLoading={isAsking}
+              suggestions={cliSuggestions}
+              suggestionIndex={suggestionIndex}
+              inputRef={inputRef}
+              onClick={() => setSelectedWindow("cli")}
+              onCommandChange={(value) => {
+                setCommand(value);
+                setSuggestionIndex(0);
+              }}
+              onSuggestionPick={(value) => {
+                setCommand(value);
+                setSuggestionIndex(0);
+                inputRef.current?.focus();
+              }}
+              onCommandKeyDown={(event) => {
+                void handleCommandKeyDown(event);
+              }}
+            />
+          </div>
         </div>
       </main>
 
