@@ -69,8 +69,13 @@ export default function ExperienceWindow({
                   }}
                   className={`list-row ${index === activeIndex ? "list-row-active" : ""}`}
                 >
-                  <span>{experience.title}</span>
-                  <span className="muted-text">{experience.date}</span>
+                  <span
+                    className={`row-marker ${index === activeIndex ? "row-marker-active" : ""}`}
+                    aria-hidden="true"
+                  >
+                    {index === activeIndex ? ">" : " "}
+                  </span>
+                  <span className="row-main">{experience.title}</span>
                 </button>
               ))}
             </div>
@@ -88,15 +93,19 @@ export default function ExperienceWindow({
                 onClick={() => onSelectIndex(index)}
                 className={`split-list-item ${index === activeIndex ? "split-list-item-active" : ""}`}
               >
-                <span>{experience.title}</span>
-                <span className="muted-text">{experience.date}</span>
+                <span
+                  className={`row-marker ${index === activeIndex ? "row-marker-active" : ""}`}
+                  aria-hidden="true"
+                >
+                  {index === activeIndex ? ">" : " "}
+                </span>
+                <span className="row-main">{experience.title}</span>
               </button>
             ))}
           </aside>
 
           <article className="split-detail">
             <h3>{activeExperience.title}</h3>
-            <p className="muted-text">{activeExperience.date}</p>
             {activeExperience.image && (
               <img
                 src={activeExperience.image}

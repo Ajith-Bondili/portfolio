@@ -48,7 +48,7 @@ export default function CliWindow({
         <div className="cli-transcript" role="log" aria-live="polite" aria-label="CLI chat transcript">
           {messages.length === 0 ? (
             <p className="cli-empty-state">
-              try: about, experience, projects, skills, goals, contact, /goto coding
+              palette: /help, /goto &lt;window&gt;, /theme, /clear · quick: about, projects, experience
             </p>
           ) : null}
 
@@ -76,7 +76,7 @@ export default function CliWindow({
 
         <div className="cli-input-shell">
           <label className="cli-input-row" htmlFor="cli-input">
-            <span className="cli-prefix">❯</span>
+            <span className="cli-prefix">&gt;</span>
             <input
               ref={inputRef}
               id="cli-input"
@@ -105,7 +105,7 @@ export default function CliWindow({
                   {suggestion}
                 </button>
               ))}
-              <p className="cli-suggestion-hint">tab complete · ↑/↓ cycle</p>
+              <p className="cli-suggestion-hint">tab complete · ↑/↓ cycle · enter run</p>
             </div>
           ) : null}
         </div>

@@ -137,7 +137,7 @@ function App() {
       .join(" ");
     const experienceSummary = experiencesData
       .slice(0, 3)
-      .map((item) => `${item.title} (${item.date})`)
+      .map((item) => item.title)
       .join(" | ");
     const projectsSummary = projectsData
       .slice(0, 3)
@@ -570,9 +570,9 @@ function App() {
               </span>
             ) : (
               <span>
-                active: {selectedWindow}
+                focus={selectedWindow}
                 {selectedWindow === "coding" ? ` (${codingView})` : ""}
-                {" · "}←/→ switch · ↑/↓ navigate · enter expand · esc close · 🖱 click open
+                {" · "}nav: ←/→ switch · ↑/↓ move · enter open · esc close · click focus
               </span>
             )}
           </div>
@@ -594,7 +594,7 @@ function App() {
             <ExperienceWindow
               selected={selectedWindow === "experience"}
               expanded={false}
-              className="layout-experience"
+              className="layout-projects"
               experiences={experiencesData}
               activeIndex={experienceIndex}
               onSelectIndex={(index) => setExperienceIndex(index)}
@@ -613,7 +613,7 @@ function App() {
             <ProjectsWindow
               selected={selectedWindow === "projects"}
               expanded={false}
-              className="layout-projects"
+              className="layout-experience"
               projects={projectsData}
               activeIndex={projectIndex}
               onSelectIndex={(index) => setProjectIndex(index)}
