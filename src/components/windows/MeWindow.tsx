@@ -3,7 +3,7 @@ import WindowShell from "./WindowShell";
 interface SchoolInfo {
   name: string;
   program: string;
-  graduationYear: string;
+  startDate: string;
   logoDitherPath: string;
 }
 
@@ -82,7 +82,7 @@ export default function MeWindow({
                 <div>
                   <p className="school-name">{school.name}</p>
                   <p className="muted-text">{school.program}</p>
-                  <p className="muted-text">{school.graduationYear}</p>
+                  <p className="muted-text">started {school.startDate}</p>
                 </div>
               </div>
             )}

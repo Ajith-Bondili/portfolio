@@ -91,13 +91,35 @@ function App() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const [command, setCommand] = useState("");
-  const [lastCommand, setLastCommand] = useState("");
-  const [response, setResponse] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isAsking, setIsAsking] = useState(false);
+  const [suggestionIndex, setSuggestionIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const isDark = theme === "dark";
   const [booting, setBooting] = useState(true);
+
+  const slashCommands = useMemo(
+    () => [
+      "/help",
+      "/theme",
+      "/clear",
+      "/goto me",
+      "/goto coding",
+      "/goto music",
+      "/goto cli",
+      "/goto experience",
+      "/goto projects",
+    ],
+    [],
+  );
+
+  const cliSuggestions = useMemo(() => {
+    const trimmed = command.trim().toLowerCase();
+    if (!trimmed.startsWith("/")) return [];
+    return slashCommands
+      .filter((candidate) => candidate.toLowerCase().startsWith(trimmed))
+      .slice(0, 6);
+  }, [command, slashCommands]);
 
   const localCommands = useMemo(() => {
     const aboutSummary = personalInfo.aboutMe
@@ -380,6 +402,13 @@ function App() {
     }
   }, [selectedWindow, expandWindow]);
 
+  useEffect(() => {
+    setSuggestionIndex((prev) => {
+      if (cliSuggestions.length === 0) return 0;
+      return Math.min(prev, cliSuggestions.length - 1);
+    });
+  }, [cliSuggestions.length]);
+
   const handlePreviewToggle = (previewUrl: string | null) => {
     if (!previewUrl) return;
 
@@ -414,6 +443,27 @@ function App() {
   };
 
   const handleCommandKeyDown = async (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    const hasSlashSuggestions =
+      command.trim().startsWith("/") && cliSuggestions.length > 0;
+
+    if (event.key === "Tab" && hasSlashSuggestions) {
+      event.preventDefault();
+      setCommand(cliSuggestions[suggestionIndex] || cliSuggestions[0]);
+      return;
+    }
+
+    if (event.key === "ArrowDown" && hasSlashSuggestions) {
+      event.preventDefault();
+      setSuggestionIndex((prev) => (prev + 1) % cliSuggestions.length);
+      return;
+    }
+
+    if (event.key === "ArrowUp" && hasSlashSuggestions) {
+      event.preventDefault();
+      setSuggestionIndex((prev) => (prev - 1 + cliSuggestions.length) % cliSuggestions.length);
+      return;
+    }
+
     if (event.key !== "Enter") return;
 
     const input = command.trim();
@@ -422,23 +472,24 @@ function App() {
     const normalized = input.toLowerCase();
     if (normalized === "/clear") {
       setCommand("");
-      setLastCommand("");
-      setResponse("");
+      setSuggestionIndex(0);
+      setIsAsking(false);
       setChatHistory([]);
       return;
     }
 
-    setLastCommand(input);
     setCommand("");
+    setSuggestionIndex(0);
+    const userMessage: ChatMessage = { role: "user", content: input };
 
     if (normalized === "/theme") {
       const nextTheme = theme === "dark" ? "light" : "dark";
+      const cliReply = `switched to ${nextTheme} mode.`;
       setTheme(nextTheme);
-      setResponse(`switched to ${nextTheme} mode.`);
       setChatHistory((prev) => [
         ...prev,
-        { role: "user", content: input },
-        { role: "assistant", content: `switched to ${nextTheme} mode.` },
+        userMessage,
+        { role: "assistant", content: cliReply },
       ]);
       return;
     }
@@ -451,10 +502,9 @@ function App() {
       setSelectedWindow(target);
       setExpandWindow("");
       const cliReply = `focused ${target}.`;
-      setResponse(cliReply);
       setChatHistory((prev) => [
         ...prev,
-        { role: "user", content: input },
+        userMessage,
         { role: "assistant", content: cliReply },
       ]);
       return;
@@ -465,20 +515,19 @@ function App() {
       (normalized === "commands" || normalized === "/help" ? localCommands.help : null);
 
     if (localResponse) {
-      setResponse(localResponse);
       setChatHistory((prev) => [
         ...prev,
-        { role: "user", content: input },
+        userMessage,
         { role: "assistant", content: localResponse },
       ]);
       return;
     }
 
     setIsAsking(true);
-    setResponse("");
+    setChatHistory((prev) => [...prev, userMessage]);
 
     try {
-      const messages = [...chatHistory, { role: "user" as const, content: input }];
+      const messages = [...chatHistory, userMessage];
       const answerResponse = await fetch("/api/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -492,15 +541,16 @@ function App() {
       const payload = (await answerResponse.json()) as { answer?: string };
       const answer = payload.answer || "sorry, i couldn't answer that right now.";
 
-      setResponse(answer);
       setChatHistory((prev) => [
         ...prev,
-        { role: "user", content: input },
         { role: "assistant", content: answer },
       ]);
     } catch (error) {
       console.error(error);
-      setResponse("something broke on my side. try again in a sec.");
+      setChatHistory((prev) => [
+        ...prev,
+        { role: "assistant", content: "something broke on my side. try again in a sec." },
+      ]);
     } finally {
       setIsAsking(false);
     }
@@ -528,7 +578,7 @@ function App() {
           <MeWindow
             selected={selectedWindow === "me"}
             expanded={false}
-            className="col-span-2 lg:col-span-2"
+            className="layout-me"
             asciiArt={selectedAscii}
             timeLabel={time.toLocaleTimeString()}
             personalInfo={personalInfo}
@@ -542,7 +592,7 @@ function App() {
           <ExperienceWindow
             selected={selectedWindow === "experience"}
             expanded={false}
-            className="col-span-2 lg:col-span-1"
+            className="layout-experience"
             experiences={experiencesData}
             activeIndex={experienceIndex}
             onSelectIndex={(index) => setExperienceIndex(index)}
@@ -561,7 +611,7 @@ function App() {
           <ProjectsWindow
             selected={selectedWindow === "projects"}
             expanded={false}
-            className="col-span-2 lg:col-span-1"
+            className="layout-projects"
             projects={projectsData}
             activeIndex={projectIndex}
             onSelectIndex={(index) => setProjectIndex(index)}
@@ -581,7 +631,7 @@ function App() {
             selected={selectedWindow === "coding"}
             expanded={false}
             isDark={isDark}
-            className="col-span-2 lg:col-span-2"
+            className="layout-coding"
             view={codingView}
             githubData={githubActivity}
             leetCodeData={leetCode}
@@ -597,7 +647,7 @@ function App() {
 
           <MusicMini
             selected={selectedWindow === "music"}
-            className="col-span-2 lg:col-span-1"
+            className="layout-music"
             nowPlaying={nowPlaying}
             isPreviewPlaying={isPreviewPlaying}
             onClick={() => setSelectedWindow("music")}
@@ -606,14 +656,23 @@ function App() {
 
           <CliWindow
             selected={selectedWindow === "cli"}
-            className="col-span-2 lg:col-span-1"
+            className="layout-cli"
             command={command}
-            lastCommand={lastCommand}
-            response={response}
+            messages={chatHistory}
             isLoading={isAsking}
+            suggestions={cliSuggestions}
+            suggestionIndex={suggestionIndex}
             inputRef={inputRef}
             onClick={() => setSelectedWindow("cli")}
-            onCommandChange={setCommand}
+            onCommandChange={(value) => {
+              setCommand(value);
+              setSuggestionIndex(0);
+            }}
+            onSuggestionPick={(value) => {
+              setCommand(value);
+              setSuggestionIndex(0);
+              inputRef.current?.focus();
+            }}
             onCommandKeyDown={(event) => {
               void handleCommandKeyDown(event);
             }}

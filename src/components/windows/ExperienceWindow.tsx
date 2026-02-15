@@ -52,20 +52,31 @@ export default function ExperienceWindow({
     >
       {!expanded ? (
         <div className="list-preview">
-          {experiences.map((experience, index) => (
-            <button
-              type="button"
-              key={experience.title}
-              onClick={() => {
-                onSelectIndex(index);
-                onOpenItem?.(index);
-              }}
-              className={`list-row ${index === activeIndex ? "list-row-active" : ""}`}
-            >
-              <span>{experience.title}</span>
-              <span className="muted-text">{experience.date}</span>
-            </button>
-          ))}
+          <div className="list-preview-meta">
+            <p className="list-preview-label">experience</p>
+            <span className="list-count-badge">{experiences.length} total</span>
+          </div>
+
+          <div className="list-scroll-wrap">
+            <div className="list-scroll" aria-label="Experience list">
+              {experiences.map((experience, index) => (
+                <button
+                  type="button"
+                  key={experience.title}
+                  onClick={() => {
+                    onSelectIndex(index);
+                    onOpenItem?.(index);
+                  }}
+                  className={`list-row ${index === activeIndex ? "list-row-active" : ""}`}
+                >
+                  <span>{experience.title}</span>
+                  <span className="muted-text">{experience.date}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <p className="list-overflow-hint muted-text">scroll for more</p>
         </div>
       ) : (
         <div className="split-layout">

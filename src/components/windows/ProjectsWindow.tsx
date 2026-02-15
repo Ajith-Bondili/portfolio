@@ -52,20 +52,31 @@ export default function ProjectsWindow({
     >
       {!expanded ? (
         <div className="list-preview">
-          {projects.map((project, index) => (
-            <button
-              type="button"
-              key={project.title}
-              onClick={() => {
-                onSelectIndex(index);
-                onOpenItem?.(index);
-              }}
-              className={`list-row ${index === activeIndex ? "list-row-active" : ""}`}
-            >
-              <span>{project.title}</span>
-              <span className="muted-text">{project.date}</span>
-            </button>
-          ))}
+          <div className="list-preview-meta">
+            <p className="list-preview-label">projects</p>
+            <span className="list-count-badge">{projects.length} total</span>
+          </div>
+
+          <div className="list-scroll-wrap">
+            <div className="list-scroll" aria-label="Projects list">
+              {projects.map((project, index) => (
+                <button
+                  type="button"
+                  key={project.title}
+                  onClick={() => {
+                    onSelectIndex(index);
+                    onOpenItem?.(index);
+                  }}
+                  className={`list-row ${index === activeIndex ? "list-row-active" : ""}`}
+                >
+                  <span>{project.title}</span>
+                  <span className="muted-text">{project.date}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <p className="list-overflow-hint muted-text">scroll for more</p>
         </div>
       ) : (
         <div className="split-layout">

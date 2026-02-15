@@ -7,7 +7,7 @@ export const personalInfo = {
   email: "ajith.bondili@uwaterloo.ca",
   title: "ML + SWE + Agents",
   education: "Computer Science @ University of Waterloo",
-  graduationYear: "2025",
+  startDate: "Sep 2024",
   location: "Toronto, ON",
 
   // Resume filename (must be in /public folder)
@@ -29,8 +29,8 @@ export const personalInfo = {
   school: {
     name: "University of Waterloo",
     program: "B.S. Computer Science",
-    graduationYear: "2027",
-    logoDitherPath: "/waterloo_logo.png",
+    startDate: "Sep 2024",
+    logoDitherPath: "/waterloo_logo_transparent_crest.png",
   },
 
   // About Me - Each string is a paragraph
