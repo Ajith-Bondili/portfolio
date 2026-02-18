@@ -79,6 +79,74 @@ function calculateStreaks(days) {
   return { currentStreak, longestStreak };
 }
 
+function calculateRollingTotal(days, spanDays) {
+  if (days.length === 0 || spanDays <= 0) return 0;
+
+  const lastDate = toUtcDate(days[days.length - 1].date);
+  const startDate = new Date(lastDate);
+  startDate.setUTCDate(lastDate.getUTCDate() - (spanDays - 1));
+
+  let total = 0;
+  for (const day of days) {
+    const date = toUtcDate(day.date);
+    if (date >= startDate && date <= lastDate) {
+      total += day.count;
+    }
+  }
+
+  return total;
+}
+
+function calculateContributionInsights(days, totalContributions) {
+  if (days.length === 0) {
+    return {
+      activeDays: 0,
+      avgPerActiveDay: 0,
+      last7Total: 0,
+      last30Total: 0,
+      bestDayCount: 0,
+      bestDayDate: null,
+      maxLevelStreak: 0,
+    };
+  }
+
+  let activeDays = 0;
+  let bestDayCount = 0;
+  let bestDayDate = null;
+  let maxLevelStreak = 0;
+  let levelRun = 0;
+
+  for (const day of days) {
+    if (day.count > 0) {
+      activeDays += 1;
+    }
+
+    if (day.count > bestDayCount) {
+      bestDayCount = day.count;
+      bestDayDate = day.date;
+    }
+
+    if (day.level >= 3 && day.count > 0) {
+      levelRun += 1;
+      if (levelRun > maxLevelStreak) maxLevelStreak = levelRun;
+    } else {
+      levelRun = 0;
+    }
+  }
+
+  const avgPerActiveDay = activeDays > 0 ? Number((totalContributions / activeDays).toFixed(1)) : 0;
+
+  return {
+    activeDays,
+    avgPerActiveDay,
+    last7Total: calculateRollingTotal(days, 7),
+    last30Total: calculateRollingTotal(days, 30),
+    bestDayCount,
+    bestDayDate,
+    maxLevelStreak,
+  };
+}
+
 function parseGithubContributions(html) {
   const tooltipCountById = new Map();
   const tooltipRegex = /<tool-tip[^>]*for="([^"]+)"[^>]*>([\s\S]*?)<\/tool-tip>/g;
@@ -125,11 +193,13 @@ function parseGithubContributions(html) {
 
   const totalContributions = normalized.reduce((sum, day) => sum + day.count, 0);
   const { currentStreak, longestStreak } = calculateStreaks(normalized);
+  const insights = calculateContributionInsights(normalized, totalContributions);
 
   return {
     totalContributions,
     currentStreak,
     longestStreak,
+    ...insights,
     days: normalized,
   };
 }
@@ -170,6 +240,13 @@ export default async function handler(req, res) {
         totalContributions: 0,
         currentStreak: 0,
         longestStreak: 0,
+        activeDays: 0,
+        avgPerActiveDay: 0,
+        last7Total: 0,
+        last30Total: 0,
+        bestDayCount: 0,
+        bestDayDate: null,
+        maxLevelStreak: 0,
         days: [],
         cached: false,
         warning: "GitHub username not found. Update githubUsername in info.ts.",

@@ -36,6 +36,9 @@ input {
   --heat-2: #166534;
   --heat-3: #16a34a;
   --heat-4: #86efac;
+  --coding-card-bg: color-mix(in srgb, var(--surface), #0f172a 28%);
+  --coding-card-border: rgba(255, 255, 255, 0.14);
+  --coding-muted-strong: #cbd5e1;
 }
 
 .theme-light {
@@ -54,6 +57,9 @@ input {
   --heat-2: #4ade80;
   --heat-3: #22c55e;
   --heat-4: #15803d;
+  --coding-card-bg: color-mix(in srgb, var(--surface), #f8fafc 26%);
+  --coding-card-border: rgba(15, 23, 42, 0.12);
+  --coding-muted-strong: #334155;
 }
 
 .app-root {
@@ -169,6 +175,12 @@ input {
   min-height: 0;
 }
 
+.layout-cli .terminal-body {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+}
+
 @media (min-width: 1024px) {
   .app-content {
     min-height: 100vh;
@@ -191,7 +203,22 @@ input {
 
   .layout-experience,
   .layout-cli {
+    height: 620px;
     min-height: 620px;
+    max-height: 620px;
+  }
+
+  .layout-experience .terminal-window,
+  .layout-cli .terminal-window {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .layout-experience .terminal-body,
+  .layout-cli .terminal-body {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
 }
 
@@ -410,6 +437,17 @@ input {
   flex-direction: column;
 }
 
+.projects-compact-preview .list-scroll-wrap {
+  flex: 1;
+  min-height: 0;
+}
+
+.projects-compact-preview .list-scroll {
+  max-height: none;
+  min-height: 0;
+  height: 100%;
+}
+
 .list-preview-meta {
   display: flex;
   align-items: center;
@@ -464,10 +502,6 @@ input {
   max-height: min(52vh, 34rem);
 }
 
-.layout-experience .projects-compact-preview .list-scroll {
-  max-height: min(38vh, 22rem);
-}
-
 .list-overflow-hint {
   margin: 0;
   font-size: 0.7rem;
@@ -508,6 +542,10 @@ input {
   font-size: 0.75rem;
   line-height: 1.42;
   color: color-mix(in srgb, var(--text), transparent 12%);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .project-focus-stack {
@@ -744,64 +782,141 @@ input {
   border-color: transparent;
 }
 
-.status-pill {
-  margin-left: auto;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  padding: 0.2rem 0.52rem;
-  border: 1px solid var(--border);
-}
-
-.status-loading {
-  color: var(--muted);
-}
-
-.status-live {
-  color: #22c55e;
-}
-
-.status-cached {
-  color: #f59e0b;
-}
-
-.status-degraded {
-  color: #ef4444;
-}
-
 .coding-content {
   display: grid;
   gap: 0.55rem;
 }
 
-.stats-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  font-size: 0.78rem;
+.metric-chip-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.metric-chip-grid-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.metric-chip {
+  border: 1px solid var(--coding-card-border);
+  background: var(--coding-card-bg);
+  border-radius: 10px;
+  padding: 0.38rem 0.46rem;
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text), transparent 93%);
+}
+
+.metric-chip-label {
+  margin: 0;
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 
+.metric-chip-value {
+  margin: 0;
+  font-size: 0.96rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--coding-muted-strong);
+}
+
+.metric-chip-accent .metric-chip-value {
+  color: color-mix(in srgb, var(--accent), var(--text) 50%);
+}
+
+.coding-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.coding-meta-pill {
+  margin: 0;
+  border: 1px solid var(--coding-card-border);
+  border-radius: 999px;
+  font-size: 0.6rem;
+  color: var(--muted);
+  padding: 0.16rem 0.46rem;
+  background: color-mix(in srgb, var(--surface), transparent 20%);
+}
+
+.difficulty-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.38rem;
+}
+
+.difficulty-chip {
+  border: 1px solid var(--coding-card-border);
+  border-radius: 9px;
+  padding: 0.32rem 0.4rem;
+  display: grid;
+  gap: 0.12rem;
+  background: color-mix(in srgb, var(--surface), transparent 18%);
+}
+
+.difficulty-chip span {
+  font-size: 0.56rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.difficulty-chip strong {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--coding-muted-strong);
+}
+
+.difficulty-easy strong {
+  color: #22c55e;
+}
+
+.difficulty-medium strong {
+  color: #f59e0b;
+}
+
+.difficulty-hard strong {
+  color: #ef4444;
+}
+
 .github-heatmap-wrap {
-  overflow-x: auto;
-  padding-bottom: 0.2rem;
+  display: grid;
+  gap: 0.32rem;
+}
+
+.github-heatmap-topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.55rem;
+  font-size: 0.6rem;
+  color: var(--muted);
 }
 
 .github-heatmap-grid {
   display: grid;
+  grid-template-columns: repeat(var(--heatmap-weeks), minmax(0, 1fr));
   grid-auto-flow: column;
-  grid-template-rows: repeat(7, 0.62rem);
+  grid-template-rows: repeat(7, minmax(0, 1fr));
   gap: 0.2rem;
-  width: max-content;
 }
 
 .github-cell {
-  width: 0.62rem;
-  height: 0.62rem;
+  width: 100%;
+  aspect-ratio: 1 / 1;
   border-radius: 2px;
 }
 
 .github-cell-empty {
   opacity: 0;
+}
+
+.github-heatmap-compact .github-heatmap-grid {
+  max-height: 7.4rem;
 }
 
 .heat-level-0 {
@@ -824,9 +939,159 @@ input {
   background: var(--heat-4);
 }
 
+.leetcode-strip-shell {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.leetcode-strip-title {
+  margin: 0;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.leetcode-strip-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.28rem;
+}
+
+.leetcode-strip-cell {
+  width: 100%;
+  display: grid;
+  gap: 0.08rem;
+  place-items: center;
+  min-height: clamp(2rem, 4.2vw, 2.45rem);
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--text), transparent 91%);
+  background: color-mix(in srgb, var(--surface), transparent 7%);
+}
+
+.leetcode-strip-weekday {
+  font-size: 0.5rem;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  color: color-mix(in srgb, var(--text), transparent 38%);
+}
+
+.leetcode-strip-day {
+  font-size: 0.64rem;
+  line-height: 1;
+  color: color-mix(in srgb, var(--text), transparent 22%);
+}
+
+.leetcode-level-0 {
+  border-color: color-mix(in srgb, var(--text), transparent 93%);
+  background: color-mix(in srgb, var(--surface), transparent 5%);
+}
+
+.leetcode-level-1 {
+  border-color: color-mix(in srgb, var(--text), transparent 91%);
+  background: color-mix(in srgb, var(--text), transparent 94%);
+}
+
+.leetcode-level-2 {
+  border-color: color-mix(in srgb, var(--accent), transparent 88%);
+  background: color-mix(in srgb, var(--accent), transparent 93%);
+}
+
+.leetcode-level-3 {
+  border-color: color-mix(in srgb, var(--accent), transparent 82%);
+  background: color-mix(in srgb, var(--accent), transparent 89%);
+}
+
+.leetcode-level-4 {
+  border-color: color-mix(in srgb, var(--accent), transparent 75%);
+  background: color-mix(in srgb, var(--accent), transparent 84%);
+}
+
+.leetcode-level-2 .leetcode-strip-weekday,
+.leetcode-level-3 .leetcode-strip-day,
+.leetcode-level-4 .leetcode-strip-day,
+.leetcode-level-3 .leetcode-strip-weekday,
+.leetcode-level-4 .leetcode-strip-weekday {
+  color: color-mix(in srgb, var(--text), transparent 10%);
+}
+
+.leetcode-month-shell {
+  display: grid;
+  gap: 0.36rem;
+}
+
+.leetcode-month-title {
+  margin: 0;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.leetcode-month-weekdays,
+.leetcode-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.2rem;
+}
+
+.leetcode-month-weekdays span {
+  text-align: center;
+  font-size: 0.58rem;
+  color: var(--muted);
+}
+
+.leetcode-month-empty {
+  min-height: 1.4rem;
+}
+
+.leetcode-month-cell {
+  display: grid;
+  place-items: center;
+  min-height: 1.4rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--text), transparent 90%);
+}
+
+.leetcode-month-cell span {
+  font-size: 0.62rem;
+  color: var(--text);
+}
+
 .music-mini-shell {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.42rem;
+}
+
+.music-list {
+  display: grid;
+  gap: 0.36rem;
+}
+
+.music-list-label {
+  margin: 0;
+  font-size: 0.64rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.music-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.44rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.36rem 0.4rem;
+}
+
+.music-favorite-row {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.36rem 0.4rem;
+  display: grid;
+  gap: 0.3rem;
 }
 
 .music-meta {
@@ -836,11 +1101,24 @@ input {
 }
 
 .music-cover {
-  width: 2.7rem;
-  height: 2.7rem;
-  border-radius: 8px;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 6px;
   object-fit: cover;
   border: 1px solid var(--border);
+}
+
+.music-cover-button {
+  border: none;
+  background: transparent;
+  padding: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.music-cover-button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent), transparent 40%);
+  outline-offset: 2px;
 }
 
 .music-cover-placeholder {
@@ -852,7 +1130,7 @@ input {
 .music-lines {
   min-width: 0;
   display: grid;
-  gap: 0.2rem;
+  gap: 0.08rem;
 }
 
 .music-lines a,
@@ -861,7 +1139,26 @@ input {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 0.78rem;
+  font-size: 0.7rem;
+}
+
+.music-preview-inline {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+}
+
+.music-preview-inline-focused {
+  border-color: color-mix(in srgb, var(--accent), transparent 45%);
+  background: color-mix(in srgb, var(--accent), transparent 88%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent), transparent 75%);
 }
 
 .preview-btn {
@@ -895,11 +1192,15 @@ input {
   grid-template-rows: minmax(0, 1fr) auto;
   gap: 0.55rem;
   min-height: 0;
+  overflow: hidden;
 }
 
 .cli-transcript {
   min-height: 0;
+  max-height: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
   display: grid;
   align-content: start;
   gap: 0.48rem;
@@ -948,6 +1249,12 @@ input {
   font-size: 0.8rem;
   line-height: 1.45;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.cli-message-assistant .cli-message-text {
+  line-height: 1.55;
 }
 
 .cli-thinking .cli-message-text {
@@ -1067,12 +1374,6 @@ input {
 .taskbar-icon:hover {
   background: color-mix(in srgb, var(--surface), var(--text) 12%);
   border-color: color-mix(in srgb, var(--accent), transparent 65%);
-}
-
-@media (max-width: 1023px) {
-  .project-focus-card {
-    display: none;
-  }
 }
 
 @media screen and (max-width: 768px) {

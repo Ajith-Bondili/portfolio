@@ -36,19 +36,27 @@ export default function CliWindow({
   onSuggestionPick,
   onCommandKeyDown,
 }: CliWindowProps) {
-  const transcriptEndRef = useRef<HTMLDivElement | null>(null);
+  const transcriptRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    transcriptEndRef.current?.scrollIntoView({ block: "end" });
+    const node = transcriptRef.current;
+    if (!node) return;
+    node.scrollTop = node.scrollHeight;
   }, [messages, isLoading]);
 
   return (
     <WindowShell title="cli" selected={selected} onClick={onClick} className={className}>
       <div className="cli-shell">
-        <div className="cli-transcript" role="log" aria-live="polite" aria-label="CLI chat transcript">
+        <div
+          ref={transcriptRef}
+          className="cli-transcript"
+          role="log"
+          aria-live="polite"
+          aria-label="CLI chat transcript"
+        >
           {messages.length === 0 ? (
             <p className="cli-empty-state">
-              palette: /help, /goto &lt;window&gt;, /theme, /clear · quick: about, projects, experience
+              palette: /help, /theme, /clear · quick: about, projects, experience
             </p>
           ) : null}
 
@@ -70,8 +78,6 @@ export default function CliWindow({
               </p>
             </div>
           ) : null}
-
-          <div ref={transcriptEndRef} aria-hidden />
         </div>
 
         <div className="cli-input-shell">
@@ -105,7 +111,7 @@ export default function CliWindow({
                   {suggestion}
                 </button>
               ))}
-              <p className="cli-suggestion-hint">tab complete · ↑/↓ cycle · enter run</p>
+              <p className="cli-suggestion-hint">tab complete · ↑/↓ cycle · enter run selected</p>
             </div>
           ) : null}
         </div>

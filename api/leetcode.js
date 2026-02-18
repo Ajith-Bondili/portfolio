@@ -12,6 +12,110 @@ function isValidLeetCodeUsername(username) {
   return /^[a-zA-Z0-9_-]{1,30}$/.test(username);
 }
 
+function toUtcDateKey(date) {
+  return [
+    date.getUTCFullYear(),
+    String(date.getUTCMonth() + 1).padStart(2, "0"),
+    String(date.getUTCDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function timestampToUtcDateKey(timestamp) {
+  const date = new Date(timestamp * 1000);
+  return toUtcDateKey(date);
+}
+
+function normalizeSubmissionCalendar(rawCalendar) {
+  if (!rawCalendar || typeof rawCalendar !== "object") {
+    return {};
+  }
+
+  const normalized = {};
+
+  for (const [timestamp, rawCount] of Object.entries(rawCalendar)) {
+    const parsedTimestamp = Number(timestamp);
+    const parsedCount = Number(rawCount);
+
+    if (!Number.isFinite(parsedTimestamp) || !Number.isFinite(parsedCount)) {
+      continue;
+    }
+
+    normalized[String(Math.trunc(parsedTimestamp))] = Math.max(0, Math.trunc(parsedCount));
+  }
+
+  return normalized;
+}
+
+function calculateSubmissionInsights(submissionCalendar) {
+  const dayMap = new Map();
+
+  for (const [timestamp, count] of Object.entries(submissionCalendar)) {
+    const key = timestampToUtcDateKey(Number(timestamp));
+    dayMap.set(key, (dayMap.get(key) || 0) + Number(count));
+  }
+
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+
+  function rangeTotals(days) {
+    let total = 0;
+    let activeDays = 0;
+
+    for (let i = 0; i < days; i += 1) {
+      const current = new Date(today);
+      current.setUTCDate(today.getUTCDate() - i);
+      const count = dayMap.get(toUtcDateKey(current)) || 0;
+      total += count;
+      if (count > 0) activeDays += 1;
+    }
+
+    return { total, activeDays };
+  }
+
+  let currentSubmissionStreak = 0;
+  const streakCursor = new Date(today);
+  for (let i = 0; i < 3660; i += 1) {
+    const count = dayMap.get(toUtcDateKey(streakCursor)) || 0;
+    if (count <= 0) break;
+    currentSubmissionStreak += 1;
+    streakCursor.setUTCDate(streakCursor.getUTCDate() - 1);
+  }
+
+  const activeDayKeys = [...dayMap.entries()]
+    .filter(([, count]) => count > 0)
+    .map(([key]) => key)
+    .sort((a, b) => a.localeCompare(b));
+
+  let bestSubmissionStreak = 0;
+  let running = 0;
+  let previousDate = null;
+
+  for (const key of activeDayKeys) {
+    const currentDate = new Date(`${key}T00:00:00Z`);
+
+    if (previousDate) {
+      const diff = Math.round((currentDate.getTime() - previousDate.getTime()) / 86400000);
+      running = diff === 1 ? running + 1 : 1;
+    } else {
+      running = 1;
+    }
+
+    previousDate = currentDate;
+    if (running > bestSubmissionStreak) bestSubmissionStreak = running;
+  }
+
+  const last7 = rangeTotals(7);
+  const last14 = rangeTotals(14);
+
+  return {
+    last7Submissions: last7.total,
+    last14Submissions: last14.total,
+    activeDays14: last14.activeDays,
+    currentSubmissionStreak,
+    bestSubmissionStreak,
+  };
+}
+
 export default async function handler(req, res) {
   const requested = normalizeUsername(req.query?.username);
   const username = requested || process.env.LEETCODE_USERNAME || "";
@@ -38,13 +142,23 @@ export default async function handler(req, res) {
     }
 
     const data = await response.json();
+    const submissionCalendar = normalizeSubmissionCalendar(data.submissionCalendar);
+    const insights = calculateSubmissionInsights(submissionCalendar);
 
     const stats = {
-      easySolved: data.easySolved,
-      hardSolved: data.hardSolved,
-      mediumSolved: data.mediumSolved,
-      totalSolved: data.totalSolved,
-      submissionCalendar: data.submissionCalendar,
+      easySolved: Number(data.easySolved) || 0,
+      hardSolved: Number(data.hardSolved) || 0,
+      mediumSolved: Number(data.mediumSolved) || 0,
+      totalSolved: Number(data.totalSolved) || 0,
+      acceptanceRate: Number(data.acceptanceRate) || 0,
+      ranking: Number(data.ranking) || 0,
+      contributionPoints: Number(data.contributionPoints) || 0,
+      totalQuestions: Number(data.totalQuestions) || 0,
+      totalEasy: Number(data.totalEasy) || 0,
+      totalMedium: Number(data.totalMedium) || 0,
+      totalHard: Number(data.totalHard) || 0,
+      submissionCalendar,
+      ...insights,
     };
 
     cache.set(key, {

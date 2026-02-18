@@ -8,7 +8,7 @@ import {
 import type {
   GitHubActivityData,
   LeetCodeData,
-  NowPlayingData,
+  RecentTracksData,
 } from "./types/indexs";
 import { asciiList, experiencesData, personalInfo, projectsData } from "./data/info";
 import DitherBackground from "./components/effects/DitherBackground";
@@ -22,7 +22,6 @@ import Taskbar from "./components/Taskbar";
 
 type WindowKey = "me" | "experience" | "projects" | "coding" | "music" | "cli";
 type ExpandKey = "" | "me" | "experience" | "projects" | "coding";
-type DataStatus = "loading" | "live" | "cached" | "degraded";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -31,19 +30,19 @@ type ChatMessage = {
 
 const NEXT_WINDOW: Record<WindowKey, WindowKey> = {
   me: "music",
-  music: "cli",
+  music: "experience",
+  experience: "coding",
+  coding: "cli",
   cli: "projects",
-  projects: "coding",
-  coding: "experience",
-  experience: "me",
+  projects: "me",
 };
 
 const PREV_WINDOW: Record<WindowKey, WindowKey> = {
-  me: "experience",
-  experience: "coding",
-  coding: "projects",
+  me: "projects",
   projects: "cli",
-  cli: "music",
+  cli: "coding",
+  coding: "experience",
+  experience: "music",
   music: "me",
 };
 
@@ -54,16 +53,6 @@ function stripHtml(raw: string) {
 function isJsonResponse(response: Response) {
   const contentType = response.headers.get("content-type") || "";
   return contentType.includes("application/json");
-}
-
-function inferStatus(
-  payload: { cached?: boolean; warning?: string } | null,
-  fallback: DataStatus = "degraded",
-): DataStatus {
-  if (!payload) return fallback;
-  if (payload.warning) return "degraded";
-  if (payload.cached) return "cached";
-  return "live";
 }
 
 function App() {
@@ -91,10 +80,9 @@ function App() {
   const [codingView, setCodingView] = useState<"github" | "leetcode">("github");
   const [githubActivity, setGithubActivity] = useState<GitHubActivityData | null>(null);
   const [leetCode, setLeetCode] = useState<LeetCodeData | null>(null);
-  const [githubStatus, setGithubStatus] = useState<DataStatus>("loading");
-  const [leetcodeStatus, setLeetcodeStatus] = useState<DataStatus>("loading");
+  const [musicPreviewIndex, setMusicPreviewIndex] = useState<number | null>(null);
 
-  const [nowPlaying, setNowPlaying] = useState<NowPlayingData | null>(null);
+  const [recentTracks, setRecentTracks] = useState<RecentTracksData | null>(null);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [currentPreviewUrl, setCurrentPreviewUrl] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -112,12 +100,6 @@ function App() {
       "/help",
       "/theme",
       "/clear",
-      "/goto me",
-      "/goto coding",
-      "/goto music",
-      "/goto cli",
-      "/goto experience",
-      "/goto projects",
     ],
     [],
   );
@@ -156,9 +138,17 @@ function App() {
         "i enjoy blending minimal design with technical depth and keyboard-first experiences.",
       contact: `${personalInfo.email} | github: ${personalInfo.socialLinks.github} | linkedin: ${personalInfo.socialLinks.linkedin}`,
       help:
-        "available commands: about, experience, projects, skills, goals, funfact, contact | slash: /goto <window>, /theme, /clear",
+        "available commands: about, experience, projects, skills, goals, funfact, contact | slash: /help, /theme, /clear",
     } as const;
   }, []);
+
+  const playablePreviewUrls = useMemo(
+    () =>
+      (recentTracks?.tracks || [])
+        .map((track) => track.preview_url)
+        .filter((url): url is string => Boolean(url)),
+    [recentTracks],
+  );
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -196,9 +186,6 @@ function App() {
 
   useEffect(() => {
     async function fetchCodingData() {
-      setGithubStatus("loading");
-      setLeetcodeStatus("loading");
-
       const githubUrl = `/api/github-activity?username=${encodeURIComponent(
         personalInfo.githubUsername,
       )}`;
@@ -231,24 +218,20 @@ function App() {
 
       if (githubResult.status === "fulfilled") {
         setGithubActivity(githubResult.value);
-        setGithubStatus(inferStatus(githubResult.value, "live"));
       } else {
         const githubError = githubResult.reason;
         if (!(githubError instanceof Error && githubError.message.includes("non-JSON"))) {
           console.error(githubError);
         }
-        setGithubStatus("degraded");
       }
 
       if (leetResult.status === "fulfilled") {
         setLeetCode(leetResult.value);
-        setLeetcodeStatus(inferStatus(leetResult.value, "live"));
       } else {
         const leetcodeError = leetResult.reason;
         if (!(leetcodeError instanceof Error && leetcodeError.message.includes("non-JSON"))) {
           console.error(leetcodeError);
         }
-        setLeetcodeStatus("degraded");
       }
     }
 
@@ -256,20 +239,20 @@ function App() {
   }, []);
 
   useEffect(() => {
-    async function fetchNowPlaying() {
+    async function fetchRecentTracks() {
       try {
-        const response = await fetch("/api/now-playing");
+        const response = await fetch("/api/recent-tracks");
         if (!response.ok || !isJsonResponse(response)) return;
-        const payload = (await response.json()) as NowPlayingData;
-        setNowPlaying(payload);
+        const payload = (await response.json()) as RecentTracksData;
+        setRecentTracks(payload);
       } catch (error) {
-        console.error("now playing fetch failed", error);
+        console.error("recent tracks fetch failed", error);
       }
     }
 
-    void fetchNowPlaying();
+    void fetchRecentTracks();
     const intervalId = window.setInterval(() => {
-      void fetchNowPlaying();
+      void fetchRecentTracks();
     }, 60000);
 
     return () => window.clearInterval(intervalId);
@@ -283,6 +266,28 @@ function App() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (selectedWindow === "music") return;
+
+    setMusicPreviewIndex(null);
+    const active = document.activeElement as HTMLElement | null;
+    if (active?.dataset.musicPreviewIndex) {
+      active.blur();
+    }
+  }, [selectedWindow]);
+
+  useEffect(() => {
+    if (playablePreviewUrls.length === 0) {
+      setMusicPreviewIndex(null);
+      return;
+    }
+
+    setMusicPreviewIndex((prev) => {
+      if (prev === null) return prev;
+      return prev >= playablePreviewUrls.length ? 0 : prev;
+    });
+  }, [playablePreviewUrls.length]);
 
   useEffect(() => {
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -374,6 +379,22 @@ function App() {
         }
       }
 
+      if (selectedWindow === "music") {
+        if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+          if (playablePreviewUrls.length === 0) return;
+          event.preventDefault();
+          setMusicPreviewIndex((prev) => {
+            if (prev === null || prev < 0 || prev >= playablePreviewUrls.length) {
+              return event.key === "ArrowUp" ? playablePreviewUrls.length - 1 : 0;
+            }
+
+            return event.key === "ArrowDown"
+              ? (prev + 1) % playablePreviewUrls.length
+              : (prev - 1 + playablePreviewUrls.length) % playablePreviewUrls.length;
+          });
+        }
+      }
+
       if (selectedWindow === "coding") {
         if (event.key === "ArrowUp" || event.key === "ArrowDown" || event.key === "Tab") {
           event.preventDefault();
@@ -395,7 +416,7 @@ function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [expandWindow, selectedWindow]);
+  }, [expandWindow, selectedWindow, playablePreviewUrls.length]);
 
   useEffect(() => {
     if (selectedWindow === "cli" && !expandWindow) {
@@ -470,7 +491,11 @@ function App() {
     const input = command.trim();
     if (!input) return;
 
-    const normalized = input.toLowerCase();
+    const resolvedInput = hasSlashSuggestions
+      ? (cliSuggestions[suggestionIndex] || cliSuggestions[0] || input)
+      : input;
+
+    const normalized = resolvedInput.toLowerCase();
     if (normalized === "/clear") {
       setCommand("");
       setSuggestionIndex(0);
@@ -481,28 +506,12 @@ function App() {
 
     setCommand("");
     setSuggestionIndex(0);
-    const userMessage: ChatMessage = { role: "user", content: input };
+    const userMessage: ChatMessage = { role: "user", content: resolvedInput };
 
     if (normalized === "/theme") {
       const nextTheme = theme === "dark" ? "light" : "dark";
       const cliReply = `switched to ${nextTheme} mode.`;
       setTheme(nextTheme);
-      setChatHistory((prev) => [
-        ...prev,
-        userMessage,
-        { role: "assistant", content: cliReply },
-      ]);
-      return;
-    }
-
-    const gotoMatch = normalized.match(
-      /^\/?(?:goto|switch)\s+(me|experience|projects|coding|music|cli)$/,
-    );
-    if (gotoMatch) {
-      const target = gotoMatch[1] as WindowKey;
-      setSelectedWindow(target);
-      setExpandWindow("");
-      const cliReply = `focused ${target}.`;
       setChatHistory((prev) => [
         ...prev,
         userMessage,
@@ -520,6 +529,18 @@ function App() {
         ...prev,
         userMessage,
         { role: "assistant", content: localResponse },
+      ]);
+      return;
+    }
+
+    if (normalized.startsWith("/")) {
+      setChatHistory((prev) => [
+        ...prev,
+        userMessage,
+        {
+          role: "assistant",
+          content: "unknown slash command. try /help, /theme, or /clear.",
+        },
       ]);
       return;
     }
@@ -637,8 +658,6 @@ function App() {
               view={codingView}
               githubData={githubActivity}
               leetCodeData={leetCode}
-              githubStatus={githubStatus}
-              leetcodeStatus={leetcodeStatus}
               onSetView={setCodingView}
               onClick={() => setSelectedWindow("coding")}
               onExpand={() => {
@@ -650,9 +669,12 @@ function App() {
             <MusicMini
               selected={selectedWindow === "music"}
               className="layout-music"
-              nowPlaying={nowPlaying}
+              recentTracks={recentTracks}
               isPreviewPlaying={isPreviewPlaying}
+              currentPreviewUrl={currentPreviewUrl}
+              focusedPreviewIndex={selectedWindow === "music" ? musicPreviewIndex : null}
               onClick={() => setSelectedWindow("music")}
+              onPreviewFocus={setMusicPreviewIndex}
               onTogglePreview={handlePreviewToggle}
             />
 
@@ -733,8 +755,6 @@ function App() {
                 view={codingView}
                 githubData={githubActivity}
                 leetCodeData={leetCode}
-                githubStatus={githubStatus}
-                leetcodeStatus={leetcodeStatus}
                 onSetView={setCodingView}
                 onClick={() => setSelectedWindow("coding")}
                 onExpand={() => undefined}

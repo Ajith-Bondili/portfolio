@@ -1,18 +1,28 @@
 import OpenAI from "openai";
 
 function clampAnswer(answer) {
-  const cleaned = (answer || "").replace(/\s+/g, " ").trim();
-  if (cleaned.length <= 420) return cleaned;
+  const normalized = String(answer || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/[ \t]{2,}/g, " ").trimEnd())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 
-  const truncated = cleaned.slice(0, 420);
-  const punctuationIndex = Math.max(
-    truncated.lastIndexOf("."),
-    truncated.lastIndexOf("?"),
-    truncated.lastIndexOf("!")
+  if (normalized.length <= 520) return normalized;
+
+  const truncated = normalized.slice(0, 520);
+  const cutoff = Math.max(
+    truncated.lastIndexOf("\n\n"),
+    truncated.lastIndexOf(". "),
+    truncated.lastIndexOf("? "),
+    truncated.lastIndexOf("! "),
+    truncated.lastIndexOf("\n")
   );
 
-  if (punctuationIndex > 120) {
-    return truncated.slice(0, punctuationIndex + 1).trim();
+  if (cutoff > 220) {
+    return truncated.slice(0, cutoff + 1).trim();
   }
 
   return `${truncated.trim()}...`;
@@ -40,8 +50,10 @@ export default async function handler(req, res) {
         role: "system",
         content: `you are ajith bondili chatting inside a terminal portfolio.
 respond as ajith in lowercase, concise, friendly language.
-keep answers short: 1-3 sentences unless user explicitly asks for detail.
-no markdown, no emojis, no roleplay disclaimers.
+keep answers short unless user explicitly asks for detail.
+prefer clean line breaks for readability (2-5 short lines is ideal).
+if listing actions, use plain text with leading "- ".
+no emojis, no roleplay disclaimers, no code fences.
 if asked for available commands, output exactly:
 available commands:
 - about
@@ -51,7 +63,7 @@ available commands:
 - goals
 - funfact
 - contact
-- /goto <window>
+- /help
 - /theme
 - /clear`,
       },
@@ -59,9 +71,9 @@ available commands:
     ];
 
     const resp = await client.chat.completions.create({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       messages: conversationMessages,
-      max_tokens: 160,
+      max_tokens: 220,
       temperature: 0.7,
     });
 

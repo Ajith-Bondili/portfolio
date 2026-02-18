@@ -5,106 +5,97 @@ interface SubmissionCalendarProps {
   submissionCalendar: {
     [timestamp: string]: number;
   };
-  viewMode?: "week" | "month";
+  viewMode?: "strip" | "month";
   isDark?: boolean;
 }
 
 const LeetCodeCalendar: React.FC<SubmissionCalendarProps> = ({
   submissionCalendar,
-  viewMode = "week",
+  viewMode = "strip",
   isDark = true,
 }) => {
-  const today = new Date();
+  const dayMap = new Map<string, number>();
+
+  Object.entries(submissionCalendar).forEach(([timestamp, rawCount]) => {
+    const parsedTimestamp = Number(timestamp);
+    const parsedCount = Number(rawCount);
+    if (!Number.isFinite(parsedTimestamp) || !Number.isFinite(parsedCount)) return;
+
+    const key = new Date(parsedTimestamp * 1000).toISOString().slice(0, 10);
+    dayMap.set(key, (dayMap.get(key) || 0) + parsedCount);
+  });
 
   const getSubmissionCount = (date: Date) => {
-    // Create a normalized date string for the calendar date (YYYY-MM-DD in local timezone)
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const calendarDateString = `${year}-${month}-${day}`;
-
-    const matchingTimestamp = Object.keys(submissionCalendar).find((ts) => {
-      const submissionDate = new Date(parseInt(ts) * 1000);
-      // LeetCode timestamps represent UTC dates, so use UTC methods to get the correct date
-      const subYear = submissionDate.getUTCFullYear();
-      const subMonth = String(submissionDate.getUTCMonth() + 1).padStart(
-        2,
-        "0"
-      );
-      const subDay = String(submissionDate.getUTCDate()).padStart(2, "0");
-      const submissionDateString = `${subYear}-${subMonth}-${subDay}`;
-
-      return submissionDateString === calendarDateString;
-    });
-    return matchingTimestamp ? submissionCalendar[matchingTimestamp] : 0;
+    const key = date.toISOString().slice(0, 10);
+    return dayMap.get(key) || 0;
   };
 
-  const getColor = (count: number) => {
-    if (isDark) {
-      if (count === 0) return "bg-gray-700";
-      if (count <= 2) return "bg-green-800";
-      if (count <= 5) return "bg-green-600";
-      if (count <= 10) return "bg-green-400";
-      return "bg-green-200";
-    }
-
-    if (count === 0) return "bg-gray-200";
-    if (count <= 2) return "bg-green-300";
-    if (count <= 5) return "bg-green-400";
-    if (count <= 10) return "bg-green-500";
-    return "bg-green-700";
+  const getMonthLevelClassName = (count: number) => {
+    if (count <= 0) return "heat-level-0";
+    if (count <= 2) return "heat-level-1";
+    if (count <= 5) return "heat-level-2";
+    if (count <= 10) return "heat-level-3";
+    return "heat-level-4";
   };
 
-  const daysOfWeek = ["S", "M", "T", "W", "T", "F", "S"];
+  const getStripLevelClassName = (count: number) => {
+    if (count <= 0) return "leetcode-level-0";
+    if (count <= 2) return "leetcode-level-1";
+    if (count <= 5) return "leetcode-level-2";
+    if (count <= 10) return "leetcode-level-3";
+    return "leetcode-level-4";
+  };
 
   if (viewMode === "month") {
-    const year = today.getFullYear();
-    const month = today.getMonth();
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const year = today.getUTCFullYear();
+    const month = today.getUTCMonth();
 
-    const startDate = new Date(year, month, 1);
-    const endDate = new Date(year, month + 1, 0);
+    const startDate = new Date(Date.UTC(year, month, 1));
+    const endDate = new Date(Date.UTC(year, month + 1, 0));
 
-    const daysInMonth = [];
+    const daysInMonth: Date[] = [];
     const currentDate = new Date(startDate);
-    while (currentDate <= endDate) {
+    while (currentDate.getTime() <= endDate.getTime()) {
       daysInMonth.push(new Date(currentDate));
-      currentDate.setDate(currentDate.getDate() + 1);
+      currentDate.setUTCDate(currentDate.getUTCDate() + 1);
     }
 
-    const firstDayOfMonth = startDate.getDay();
-    const monthName = today.toLocaleString("default", { month: "long" });
+    const firstDayOfMonth = startDate.getUTCDay();
+    const monthName = today.toLocaleString("en-US", { month: "long", timeZone: "UTC" });
+    const daysOfWeek = ["S", "M", "T", "W", "T", "F", "S"];
 
     return (
-      <div className="flex flex-col items-center mt-4 w-full px-4">
-        <p
-          className={`text-sm mb-2 self-center ${
-            isDark ? "text-gray-200" : "text-gray-800"
-          }`}
-        >
+      <div className={`leetcode-month-shell ${isDark ? "is-dark" : "is-light"}`}>
+        <p className="leetcode-month-title">
           {monthName.toLowerCase()} {year}
         </p>
-        <div className="grid grid-cols-7 gap-1 w-full text-center text-xs text-gray-400">
-          {daysOfWeek.map((day, i) => (
-            <div key={i}>{day}</div>
+        <div className="leetcode-month-weekdays" aria-hidden="true">
+          {daysOfWeek.map((day) => (
+            <span key={day}>{day}</span>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-1 mt-1 w-full">
+        <div className="leetcode-month-grid">
           {Array.from({ length: firstDayOfMonth }).map((_, index) => (
-            <div key={`empty-${index}`} />
+            <span key={`empty-${index}`} className="leetcode-month-empty" />
           ))}
           {daysInMonth.map((day, index) => {
             const count = getSubmissionCount(day);
-            const color = getColor(count);
+            const label = day.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+              timeZone: "UTC",
+            });
             return (
               <Tooltip
                 key={index}
-                text={`${count} submissions on ${day.toDateString()}`}
+                text={`${count} submissions on ${label}`}
               >
-                <div
-                  className={`w-full aspect-square flex items-center justify-center rounded-lg ${color}`}
-                >
-                  <span className="text-white text-xs">{day.getDate()}</span>
-                </div>
+                <span className={`leetcode-month-cell ${getMonthLevelClassName(count)}`}>
+                  <span>{day.getUTCDate()}</span>
+                </span>
               </Tooltip>
             );
           })}
@@ -113,57 +104,38 @@ const LeetCodeCalendar: React.FC<SubmissionCalendarProps> = ({
     );
   }
 
-  // Default to weekly view
-  const currentDayOfWeek = today.getDay(); // 0=Sunday, 6=Saturday
-  const startDate = new Date(today);
-  startDate.setDate(today.getDate() - currentDayOfWeek); // Start of the week (Sunday)
-  startDate.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const daysInStrip: Date[] = [];
 
-  const daysInWeek = [];
-  for (let i = 0; i < 7; i++) {
-    const day = new Date(startDate);
-    day.setDate(startDate.getDate() + i);
-    daysInWeek.push(day);
+  for (let i = 13; i >= 0; i -= 1) {
+    const date = new Date(today);
+    date.setUTCDate(today.getUTCDate() - i);
+    daysInStrip.push(date);
   }
 
   return (
-    <div className="flex flex-col items-center mt-4 w-full px-4">
-      <p
-        className={` text-sm mb-2 self-center ${
-          isDark ? "text-gray-200" : "text-gray-800"
-        }`}
-      >
-        week's submissions
-      </p>
-      <div className="grid grid-cols-7 gap-2 w-full text-center">
-        {daysInWeek.map((day, index) => {
+    <div className={`leetcode-strip-shell ${isDark ? "is-dark" : "is-light"}`}>
+      <p className="leetcode-strip-title">14-day submissions</p>
+      <div className="leetcode-strip-grid">
+        {daysInStrip.map((day, index) => {
           const count = getSubmissionCount(day);
-          const color = getColor(count);
+          const weekday = ["S", "M", "T", "W", "T", "F", "S"][day.getUTCDay()];
+          const label = day.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            timeZone: "UTC",
+          });
+
           return (
             <Tooltip
               key={index}
-              text={`${count} submissions on ${day.toLocaleDateString()}`}
+              text={`${count} submissions on ${label}`}
             >
-              <div className="flex flex-col items-center gap-1">
-                <span
-                  className={`text-xs text-gray-400 ${
-                    isDark ? "text-gray-200" : "text-gray-800"
-                  }`}
-                >
-                  {daysOfWeek[index]}
-                </span>
-                <div
-                  className={`w-8 h-8 flex items-center justify-center rounded-sm ${color}`}
-                >
-                  <span
-                    className={`text-white text-xs ${
-                      isDark ? "text-gray-200" : "text-gray-800"
-                    }`}
-                  >
-                    {day.getDate()}
-                  </span>
-                </div>
-              </div>
+              <span className={`leetcode-strip-cell ${getStripLevelClassName(count)}`}>
+                <span className="leetcode-strip-weekday">{weekday}</span>
+                <span className="leetcode-strip-day">{day.getUTCDate()}</span>
+              </span>
             </Tooltip>
           );
         })}
