@@ -58,6 +58,16 @@ CSS variables in `src/index.css` (`.theme-dark` / `.theme-light`). Persisted to 
 
 `.portfolio-grid` in `src/index.css` — CSS Grid with named template areas. Single column on mobile, 4-column bento on desktop (1024px+). The grid layout and many component sizes use hardcoded values that need responsive breakpoints (tracked in TODO.md section 9).
 
+### Mobile Responsiveness
+
+All UI changes must work on mobile (375px+) — no exceptions, even for TUI-style components. This is a design constraint, not an afterthought:
+- **Never use hardcoded px heights/widths** for layout-critical elements; prefer `min-height`, `max-height`, `clamp()`, or `%`
+- **Avoid fixed column counts** in grids — use `auto-fit`/`auto-fill` with `minmax()` so they collapse on small screens
+- **Touch targets** must be ≥ 44px tall for interactive elements (buttons, list rows)
+- **Overflow** — always set `overflow: hidden` or `overflow-x: hidden` on containers that could cause horizontal scroll on mobile
+- When adding new layout sections, test at 375px and 768px widths, not just desktop
+- The grid already goes single-column on mobile via `.portfolio-grid` — window internals must do the same
+
 ## Code Style
 
 - 2-space indent, semicolons, double quotes
