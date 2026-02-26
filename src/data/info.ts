@@ -47,7 +47,8 @@ export const experiencesData = [
     window: "Shopify",
     date: "Jan 2026 - Apr 2026",
     description:
-      "Built an AI agentic pull request reviewer that delivers context-aware feedback, line-level suggestions, and automated scans for 1000+ engineers. Developed ML infrastructure with PyTorch and integrated it into Rails services with Kafka-based event pipelines.",
+      "Part of the Dev AI team at Shopify, worked on an AI-powered PR reviewer and Code Scans to upkeep the monorepo's health. Built and optimized the batching algorithm at the core of the system, and touched upon context engineering, model work, and applied ML work.",
+    image: "/efecto-shopify logo.png",
     links: [{ name: "Shopify", url: "https://www.shopify.com" }],
   },
   {
@@ -55,65 +56,107 @@ export const experiencesData = [
     window: "UWaterloo",
     date: "Sept 2025 - Dec 2025",
     description:
-      "Co-authored SafeGuard, a modular multi-agent framework for LLM safety evaluation. Fine-tuned LoRA critic models and built an interpretable aggregation layer for release/refusal decisions, reaching up to 87% F1 on harmful-content benchmarks.",
-    links: [{ name: "University of Waterloo", url: "https://uwaterloo.ca" }],
+      "Researched LLM safety, co-authoring SafeGuard, a modular multi-agent framework for evaluating harmful content in language models. Fine-tuned LoRA critic models and built the aggregation layer behind release/refusal decisions.",
+    image: "/efecto-waterloo.png",
+    links: [
+      { name: "Implementation", url: "https://github.com/SohamNagi/ArmyOfSafeguards" },
+    ],
   },
   {
     title: "AI Software Engineer @ FriedmannAI",
     window: "FriedmannAI",
     date: "May 2025 - Sept 2025",
+    image: "/efecto-friedmannai.png",
     description:
-      "Improved production response accuracy by 90% with an agentic RAG microservice. Automated 100GB+ ingestion into Elasticsearch via ETL pipelines and reduced processing latency from 20,000ms to 600ms.",
-    links: [],
+      "Built a portfolio management dashboard from the ground up and developed multi-step agentic pipelines alongside IBM engineers. Mostly full stack and applied AI work.",
+    links: [
+      { name: "FriedmannAI", url: "https://www.friedmann.ai/" }
+    ],
   },
   {
     title: "Machine Learning Engineer @ WAT.ai",
     window: "WAT.ai",
     date: "Mar 2025 - Sept 2025",
+    image: "/efecto-watai.png",
     description:
-      "Built emotion classification models for a journaling app and developed an end-to-end Python data pipeline that generated 10,000+ synthetic samples for downstream ML model training.",
-    links: [{ name: "WAT.ai", url: "https://wat.ai" }],
+      "Built emotion classification models for a journaling app and an end-to-end data pipeline to generate synthetic training samples.",
+    links: [{ name: "WAT.ai", url: "https://watai.ca/" }],
   },
   {
     title: "Software Engineer @ Cita Marketplace",
     window: "Cita Marketplace",
     date: "May 2024 - Aug 2024",
+    image: "/efecto-cita.png",
     description:
-      "Developed REST APIs supporting booking workflows for 5,000+ users with comprehensive unit tests. Optimized SQL query performance and streamlined Docker + GitHub Actions CI/CD delivery.",
-    links: [],
+      "Built out backend features, wrote unit tests, and helped streamline the deployment pipeline.",
+    links: [
+      { name: "Cita Marketplace", url: "https://www.citamarketplace.com/" }
+    ],
   },
 ];
 
 export const projectsData = [
   {
-    title: "Assembl3D",
-    window: "Assembl3D",
+    title: "arXivisual",
+    hackathon: "TartanHacks",
+    hackathonWon: true,
+    window: "arXivisual",
     date: "2026",
+    stats: "7k+ users  ·  130+ stars",
+    video: "/projects-media/ArXivisual.mp4",
     description:
-      "Transforms IKEA PDF manuals into interactive 3D assembly guides with step-by-step scene rendering. Extracts parts, tools, and instructions, then maps them into navigable scenes with agentic assistance.",
+      "Converts complex arXiv research papers into simple animated visual explanations.",
     links: [
       {
         name: "GitHub",
-        url: "https://github.com/Ajith-Bondili/assembl3D",
+        url: "https://github.com/rajshah6/arXivisual",
+      },
+      {
+        name: "Website",
+        url: "https://www.arxivisual.org/",
+      },
+    ],
+  },
+  {
+    title: "Assembl3D",
+    hackathon: "CalHacks",
+    window: "Assembl3D",
+    date: "2025",
+    image: "/projects-media/Assembl3d.gif",
+    description:
+      "Transforms IKEA PDF manuals into interactive 3D assembly guides with step-by-step scene rendering. Extracts parts, tools, and instructions, then maps them into scenes.",
+    links: [
+      {
+        name: "GitHub",
+        url: "https://github.com/rajshah6/assembl3D",
       },
     ],
   },
   {
     title: "PrepPal",
+    hackathon: "UofTHacks",
     window: "PrepPal",
     date: "2025",
+    image: "/projects-media/Prepal.png",
     description:
-      "AI interview bot serving 500+ users with behavioral Q&A, real-time feedback, and session analytics. Added automated scoring and video-based eye-contact analysis reaching around 90% detection accuracy.",
-    links: [],
+      "Interview prep bot to help with behavioral Q&A, giving you feedback to improve on.",
+    links: [
+      {
+      name: "GitHub",
+      url: "https://github.com/Ajith-Bondili/PrePal",
+    },
+    ],
   },
   {
-    title: "UFC Fights EV Predictor",
-    window: "FightEV",
+    title: "CodeMentor",
+    window: "CodeMentor",
     date: "2025",
+    image: "/projects-media/codementors.png",
     description:
-      "Calculates expected value for UFC bets by combining fighter stats and market odds. Visualizes trends and outcome probabilities to help identify high-value opportunities.",
+      "A personalized coding tutor to make my exam prep more enjoyable :)",
     links: [
-      { name: "Live", url: "https://fightev.vercel.app/" },
+      { name: "Live", url: "https://cf-ai-codementor.pages.dev" },
+      { name: "GitHub", url: "https://github.com/Ajith-Bondili/cf_ai_project" },
     ],
   },
   {
@@ -121,8 +164,20 @@ export const projectsData = [
     window: "Website Cloner",
     date: "2025",
     description:
-      "Clones website structure and styling into editable components for rapid prototyping. Captures full DOM trees and normalizes HTML for clean, reusable regeneration workflows.",
-    links: [],
+      "Clone any website you love—instantly! Dives deep into obfuscated DOMs, scrapes layers, and reconstructs landing pages as editable building blocks so you can prototype fast (and shamelessly borrow your favorite sites ;).",
+    links: [
+      { name: "GitHub", url: "https://github.com/Ajith-Bondili/Website-Cloner" },
+    ],
+  },
+  {
+    title: "Spell-check",
+    window: "Spell-check",
+    date: "2025",
+    description:
+      "A privacy-first autocorrect system that runs fully on localhost. No cloud calls. No remote model dependency. Fast typo correction + rule-based context disambiguation.",
+    links: [
+      { name: "GitHub", url: "https://github.com/Ajith-Bondili/Spell-check" },
+    ],
   },
 ];
 
