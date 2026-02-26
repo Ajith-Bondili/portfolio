@@ -81,7 +81,6 @@ export default function ExperienceWindow({
             </div>
           </div>
 
-          <p className="list-overflow-hint muted-text">scroll for more</p>
         </div>
       ) : (
         <div className="split-layout">

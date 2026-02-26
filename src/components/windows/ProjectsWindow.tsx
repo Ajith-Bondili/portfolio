@@ -7,11 +7,15 @@ interface LinkItem {
 
 interface ProjectItem {
   title: string;
+  hackathon?: string;
+  hackathonWon?: boolean;
+  stats?: string;
   date: string;
   meta?: string;
   stack?: string[];
   description: string;
   image?: string;
+  video?: string;
   links: LinkItem[];
 }
 
@@ -40,6 +44,16 @@ export default function ProjectsWindow({
   onExpand,
   onClose,
 }: ProjectsWindowProps) {
+  const renderMedia = (src: string | undefined, videoSrc: string | undefined, alt: string, cls: string) => {
+    if (videoSrc) return (
+      <video autoPlay muted loop playsInline controls className={cls}>
+        <source src={videoSrc} type="video/mp4" />
+      </video>
+    );
+    if (src) return <img src={src} alt={alt} className={cls} />;
+    return null;
+  };
+
   const activeProject = projects[activeIndex];
   const activeProjectMeta = activeProject.meta;
   const activeProjectSummary = activeProject.description
@@ -86,7 +100,12 @@ export default function ProjectsWindow({
                     >
                       {index === activeIndex ? ">" : " "}
                     </span>
-                    <span className="row-main">{project.title}</span>
+                    <span className="row-main">
+                      {project.title}
+                      {project.hackathon ? (
+                        <span className="hackathon-pill">[{project.hackathonWon ? "🏆 " : ""}{project.hackathon}]</span>
+                      ) : null}
+                    </span>
                     {hasMeta ? <span className="row-meta muted-text">{project.meta}</span> : null}
                   </button>
                 );
@@ -94,11 +113,17 @@ export default function ProjectsWindow({
             </div>
           </div>
 
-          <p className="list-overflow-hint muted-text">scroll for more</p>
-
           <article className="project-focus-card" aria-label="Selected project preview">
             <p className="project-focus-label">selected project</p>
-            <h3 className="project-focus-title">{activeProject.title}</h3>
+            <h3 className="project-focus-title">
+              {activeProject.title}
+              {activeProject.hackathon ? (
+                <span className="hackathon-pill">[{activeProject.hackathonWon ? "🏆 " : ""}{activeProject.hackathon}]</span>
+              ) : null}
+            </h3>
+            {activeProject.stats ? (
+              <p className="project-stats">{activeProject.stats}</p>
+            ) : null}
             {activeProjectMeta ? (
               <p className="project-focus-meta muted-text">{activeProjectMeta}</p>
             ) : null}
@@ -148,7 +173,12 @@ export default function ProjectsWindow({
                   >
                     {index === activeIndex ? ">" : " "}
                   </span>
-                  <span className="row-main">{project.title}</span>
+                  <span className="row-main">
+                    {project.title}
+                    {project.hackathon ? (
+                      <span className="hackathon-pill">[{project.hackathonWon ? "🏆 " : ""}{project.hackathon}]</span>
+                    ) : null}
+                  </span>
                   {hasMeta ? <span className="row-meta muted-text">{project.meta}</span> : null}
                 </button>
               );
@@ -156,15 +186,17 @@ export default function ProjectsWindow({
           </aside>
 
           <article className="split-detail">
-            <h3>{activeProject.title}</h3>
+            <h3>
+              {activeProject.title}
+              {activeProject.hackathon ? (
+                <span className="hackathon-pill">[{activeProject.hackathonWon ? "🏆 " : ""}{activeProject.hackathon}]</span>
+              ) : null}
+            </h3>
+            {activeProject.stats ? (
+              <p className="project-stats">{activeProject.stats}</p>
+            ) : null}
             {activeProjectMeta ? <p className="muted-text">{activeProjectMeta}</p> : null}
-            {activeProject.image && (
-              <img
-                src={activeProject.image}
-                alt={activeProject.title}
-                className="detail-image"
-              />
-            )}
+            {renderMedia(activeProject.image, activeProject.video, activeProject.title, "project-media-full")}
             <p>{activeProject.description}</p>
             {activeProject.links.length > 0 && (
               <div className="link-row">
