@@ -562,6 +562,28 @@ input {
   color: var(--muted);
 }
 
+.project-stats {
+  font-size: 0.7rem;
+  color: var(--accent);
+  letter-spacing: 0.03em;
+  margin-top: 0.1rem;
+  margin-bottom: 0.15rem;
+}
+
+.hackathon-pill {
+  margin-left: 0.35rem;
+  color: var(--muted);
+  font-size: 0.65rem;
+  white-space: nowrap;
+  vertical-align: middle;
+  letter-spacing: 0.01em;
+}
+
+.list-row-active .hackathon-pill,
+.split-list-item-active .hackathon-pill {
+  color: color-mix(in srgb, var(--accent-foreground), transparent 30%);
+}
+
 .horizontal-preview {
   display: grid;
   grid-auto-flow: column;
@@ -735,11 +757,33 @@ input {
 }
 
 .detail-image {
-  width: 100%;
-  max-width: 430px;
+  display: block;
+  margin: 0 auto;
+  width: 180px;
+  height: 180px;
+  object-fit: contain;
   border-radius: 10px;
-  border: 1px solid var(--border);
+}
+
+/* compact focus card thumbnail */
+.project-media-thumb {
+  display: block;
+  width: 100%;
+  height: 130px;
   object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+/* expanded detail full media */
+.project-media-full {
+  display: block;
+  width: 100%;
+  max-height: 340px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface), var(--text) 3%);
 }
 
 .link-row {
