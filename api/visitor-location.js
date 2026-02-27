@@ -20,14 +20,8 @@ export default function handler(req, res) {
   const region = rawRegion ? decodeURIComponent(rawRegion) : "";
   const country = rawCountry ? decodeURIComponent(rawCountry) : "";
 
-  let greeting = "";
-  if (city) {
-    greeting = city;
-  } else if (region && country) {
-    greeting = `${region}, ${country}`;
-  } else if (country) {
-    greeting = country;
-  }
+  const parts = [city, region, country].filter(Boolean);
+  const greeting = parts.join(", ");
 
   cache.set(ip, { greeting, ts: Date.now() });
 

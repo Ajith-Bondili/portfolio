@@ -15,9 +15,9 @@
 - [x] Standardize formatting across all entries.
 
 ## 4. Me section improvements
-- [ ] Make Enter behavior in `Me` section feel better (clear interaction + improved text).
-- [ ] Center name/header text properly.
-- [ ] Improve visual styling for name/introduction (typography, spacing, emphasis).
+- [x] Make Enter behavior in `Me` section feel better (clear interaction + improved text).
+- [x] Center name/header text properly.
+- [x] Improve visual styling for name/introduction (typography, spacing, emphasis).
 
 ## 5. Music widget keyboard UX
 - [x] Make `Up/Down` arrow navigation highlight the Play button.

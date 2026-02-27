@@ -69,13 +69,10 @@ export default function MeWindow({
             {visitorGreeting !== undefined && (
               <p className="muted-text">
                 {visitorGreeting
-                  ? `hi visitor from ${visitorGreeting}`
-                  : "hi visitor from somewhere on earth"}
+                  ? `connecting from ${visitorGreeting}`
+                  : "connecting from somewhere on earth"}
               </p>
             )}
-            <p className="muted-text">
-              psst... check the top bar for controls
-            </p>
 
             {school && (
               <div className="school-card">
@@ -93,6 +90,9 @@ export default function MeWindow({
                 </div>
               </div>
             )}
+            <p style={{ fontSize: "0.55rem", opacity: 0.35, marginTop: "0.25rem" }}>
+              psst... check the top bar for controls
+            </p>
           </div>
         </div>
       ) : (

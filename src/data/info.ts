@@ -33,9 +33,8 @@ export const personalInfo = {
 
   // About Me - Each string is a paragraph
   aboutMe: [
-    "i build practical ai systems with clean ux and strong engineering fundamentals.",
-    "my work spans ml infrastructure, agentic pipelines, and product-focused software from 0 to 1.",
-    "i care about making advanced systems understandable, reliable, and genuinely useful to real users.",
+    "hi, i'm ajith bondili. obsessed with ai, agents, and whatever's shipping next. i think we're in one of those rare moments where everything is changing at once and i want to be building in the middle of it.",
+    "outside of that: home lab nerd, openclaw dabbler, project tinkerer, gym-rat, podcast addict, UFC enjoyer :)",
   ],
 };
 
