@@ -9,7 +9,7 @@ A keyboard-first, minimalist TUI-style portfolio built with React + TypeScript +
 - Subtle dither background (dark + light theme)
 - Coding panel toggle: GitHub contribution heatmap + LeetCode stats
 - Compact AI CLI (`/api/ask`)
-- Spotify now-playing mini widget (`/api/now-playing`)
+- Spotify recent tracks widget (`/api/recent-tracks`)
 
 ## Quick Start
 
@@ -113,7 +113,7 @@ LEETCODE_USERNAME=your-leetcode-handle
 4. Open `https://ajithbondili.com/api/login` once, approve scopes, and copy the `refresh_token` shown on the callback page.
 5. Add `SPOTIFY_REFRESH_TOKEN` to env vars and redeploy.
 6. Verify:
-   - `https://ajithbondili.com/api/now-playing`
+   - `https://ajithbondili.com/api/recent-tracks`
 
 ## Build & Check
 

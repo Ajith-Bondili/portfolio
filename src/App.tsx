@@ -10,7 +10,7 @@ import type {
   LeetCodeData,
   RecentTracksData,
 } from "./types/indexs";
-import { asciiList, experiencesData, personalInfo, projectsData } from "./data/info";
+import { asciiList, experiencesData, fallbackRecentTracks, personalInfo, projectsData } from "./data/info";
 import DitherBackground from "./components/effects/DitherBackground";
 import MeWindow from "./components/windows/MeWindow";
 import ExperienceWindow from "./components/windows/ExperienceWindow";
@@ -82,7 +82,7 @@ function App() {
   const [leetCode, setLeetCode] = useState<LeetCodeData | null>(null);
   const [musicPreviewIndex, setMusicPreviewIndex] = useState<number | null>(null);
 
-  const [recentTracks, setRecentTracks] = useState<RecentTracksData | null>(null);
+  const [recentTracks, setRecentTracks] = useState<RecentTracksData | null>(fallbackRecentTracks);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [currentPreviewUrl, setCurrentPreviewUrl] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -94,6 +94,7 @@ function App() {
   const inputRef = useRef<HTMLInputElement>(null);
   const isDark = theme === "dark";
   const [booting, setBooting] = useState(true);
+  const [visitorGreeting, setVisitorGreeting] = useState<string | undefined>(undefined);
 
   const slashCommands = useMemo(
     () => [
@@ -256,6 +257,13 @@ function App() {
     }, 60000);
 
     return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/visitor-location")
+      .then(res => res.ok ? res.json() : Promise.reject())
+      .then(data => setVisitorGreeting((data as { greeting?: string }).greeting || ""))
+      .catch(() => setVisitorGreeting(""));
   }, []);
 
   useEffect(() => {
@@ -605,6 +613,7 @@ function App() {
               asciiArt={selectedAscii}
               timeLabel={time.toLocaleTimeString()}
               personalInfo={personalInfo}
+              visitorGreeting={visitorGreeting}
               onClick={() => setSelectedWindow("me")}
               onExpand={() => {
                 setSelectedWindow("me");
@@ -715,6 +724,7 @@ function App() {
                 asciiArt={selectedAscii}
                 timeLabel={time.toLocaleTimeString()}
                 personalInfo={personalInfo}
+                visitorGreeting={visitorGreeting}
                 onClick={() => setSelectedWindow("me")}
                 onExpand={() => undefined}
                 onClose={() => setExpandWindow("")}

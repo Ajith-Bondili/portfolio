@@ -1,9 +1,9 @@
-import { getValidAccessToken } from "./token-manager.js";
+import { getValidAccessToken } from "./_lib/token-manager.js";
 import {
   isRateLimited,
   getRateLimitInfo,
   handleRateLimitResponse,
-} from "./rate-limit-manager.js";
+} from "./_lib/rate-limit-manager.js";
 
 let cachedTracks = null;
 let lastFetched = 0;

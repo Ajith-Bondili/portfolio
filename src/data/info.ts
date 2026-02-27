@@ -7,7 +7,6 @@ export const personalInfo = {
   email: "ajith.bondili@uwaterloo.ca",
   title: "ML + SWE + Agents",
   education: "Computer Science @ University of Waterloo",
-  startDate: "Sep 2024",
   location: "Toronto, ON",
 
   // Resume filename (must be in /public folder)
@@ -29,7 +28,6 @@ export const personalInfo = {
   school: {
     name: "University of Waterloo",
     program: "B.S. Computer Science",
-    startDate: "Sep 2024",
     logoDitherPath: "/waterloo_logo_transparent_crest.png",
   },
 
@@ -106,14 +104,14 @@ export const projectsData = [
     video: "/projects-media/ArXivisual.mp4",
     description:
       "Converts complex arXiv research papers into simple animated visual explanations.",
-    links: [
+      links: [
+      {
+        name: "Live",
+        url: "https://www.arxivisual.org/",
+      },
       {
         name: "GitHub",
         url: "https://github.com/rajshah6/arXivisual",
-      },
-      {
-        name: "Website",
-        url: "https://www.arxivisual.org/",
       },
     ],
   },
@@ -180,6 +178,47 @@ export const projectsData = [
     ],
   },
 ];
+
+// Static fallback when Spotify API is unavailable
+export const fallbackRecentTracks = {
+  tracks: [
+    {
+      id: "fallback-1",
+      name: "Not Like Us",
+      artists: ["Kendrick Lamar"],
+      album: "GNX",
+      album_image: "https://i.scdn.co/image/ab67616d00001e02d2efa1580e44b1574f5549c0",
+      spotify_url: "https://open.spotify.com/track/6AI3ezQ4o3HUoP6Dhudph3",
+      preview_url: null,
+      played_at: null,
+    },
+    {
+      id: "fallback-2",
+      name: "Call Back",
+      artists: ["Metro Boomin", "Don Toliver"],
+      album: "Heroes & Villains",
+      album_image: "https://i.scdn.co/image/ab67616d00001e02c4fee55d7b51479627c31f89",
+      spotify_url: "https://open.spotify.com/track/0qOnSQQF0yzuPWJmSgWDnr",
+      preview_url: null,
+      played_at: null,
+    },
+    {
+      id: "fallback-3",
+      name: "Sky Walker",
+      artists: ["Miguel", "Travis Scott"],
+      album: "War & Leisure",
+      album_image: "https://i.scdn.co/image/ab67616d00001e0249b3b7e63de066083b343b53",
+      spotify_url: "https://open.spotify.com/track/7xQAfvXzm3AkraOtGPWIZg",
+      preview_url: null,
+      played_at: null,
+    },
+  ],
+  favorite_artist: {
+    name: "Drake",
+    image: "https://i.scdn.co/image/ab6761610000e5eb4293385d429161f11f146fb1",
+    url: "https://open.spotify.com/artist/3TVXtAsR1Inumwj472S9r4",
+  },
+};
 
 export const asciiList = [
   `⣶⣶⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⠔⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣤

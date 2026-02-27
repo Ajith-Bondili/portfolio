@@ -1,4 +1,4 @@
-import { getMissingSpotifyAuthVars, getSpotifyRedirectUri } from "./spotify-auth.js";
+import { getMissingSpotifyAuthVars, getSpotifyRedirectUri } from "./_lib/spotify-auth.js";
 
 export default async function handler(req, res) {
   const code = req.query.code || null;
@@ -62,7 +62,7 @@ export default async function handler(req, res) {
           ` : `
             <p><strong>No new <code>refresh_token</code> was returned.</strong> Try the login flow again and approve consent.</p>
           `}
-          <p>Then redeploy and test <code>/api/now-playing</code>.</p>
+          <p>Then redeploy and test <code>/api/recent-tracks</code>.</p>
         </body>
       </html>
     `);

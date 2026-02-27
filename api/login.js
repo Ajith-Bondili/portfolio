@@ -1,4 +1,4 @@
-import { getMissingSpotifyAuthVars, getSpotifyRedirectUri } from "./spotify-auth.js";
+import { getMissingSpotifyAuthVars, getSpotifyRedirectUri } from "./_lib/spotify-auth.js";
 
 export default function handler(req, res) {
   const missingVars = getMissingSpotifyAuthVars();

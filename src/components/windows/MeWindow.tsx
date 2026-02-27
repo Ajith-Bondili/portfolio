@@ -3,7 +3,6 @@ import WindowShell from "./WindowShell";
 interface SchoolInfo {
   name: string;
   program: string;
-  startDate: string;
   logoDitherPath: string;
 }
 
@@ -25,6 +24,7 @@ interface MeWindowProps {
   asciiArt: string;
   timeLabel: string;
   personalInfo: PersonalInfoModel;
+  visitorGreeting?: string;
   onClick: () => void;
   onExpand: () => void;
   onClose?: () => void;
@@ -37,6 +37,7 @@ export default function MeWindow({
   asciiArt,
   timeLabel,
   personalInfo,
+  visitorGreeting,
   onClick,
   onExpand,
   onClose,
@@ -63,11 +64,18 @@ export default function MeWindow({
             <p className="accent-line">
               {personalInfo.username}@{personalInfo.computerName}
             </p>
-            <p>{personalInfo.name}</p>
             <p>{personalInfo.email}</p>
-            <p>{personalInfo.title}</p>
-            <p>{personalInfo.location}</p>
             <p>{timeLabel}</p>
+            {visitorGreeting !== undefined && (
+              <p className="muted-text">
+                {visitorGreeting
+                  ? `hi visitor from ${visitorGreeting}`
+                  : "hi visitor from somewhere on earth"}
+              </p>
+            )}
+            <p className="muted-text">
+              psst... check the top bar for controls
+            </p>
 
             {school && (
               <div className="school-card">
@@ -82,7 +90,6 @@ export default function MeWindow({
                 <div>
                   <p className="school-name">{school.name}</p>
                   <p className="muted-text">{school.program}</p>
-                  <p className="muted-text">started {school.startDate}</p>
                 </div>
               </div>
             )}
