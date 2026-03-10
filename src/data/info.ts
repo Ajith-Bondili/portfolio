@@ -34,7 +34,7 @@ export const personalInfo = {
   // About Me - Each string is a paragraph
   aboutMe: [
     "hi, i'm ajith bondili. obsessed with ai, agents, and whatever's shipping next. i think we're in one of those rare moments where everything is changing at once and i want to be building in the middle of it.",
-    "outside of that: home lab nerd, openclaw dabbler, project tinkerer, gym-rat, podcast addict, UFC enjoyer :)",
+    "outside of that: home lab nerd, openclaw dabbler, project tinkerer, gym-rat, podcast enjoyer, UFC fan :)",
   ],
 };
 
@@ -99,7 +99,7 @@ export const projectsData = [
     hackathonWon: true,
     window: "arXivisual",
     date: "2026",
-    stats: "7k+ users  ·  130+ stars",
+    stats: "20k+ users  ·  140+ stars ·  1M+ views",
     video: "/projects-media/ArXivisual.mp4",
     description:
       "Converts complex arXiv research papers into simple animated visual explanations.",
