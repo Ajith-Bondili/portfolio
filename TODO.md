@@ -24,7 +24,7 @@
 - [x] Allow `Enter` (or expected key) to trigger play when Play button is focused.
 
 ## 6. ASCII/background art
-- [ ] Replace current ASCII art with “effecto” computer-style art.
+- [x] Replace current ASCII art with “effecto” computer-style art.
 - [ ] Set background art to effecto version (ASCII or PNG as intended).
 - [ ] Verify it scales well on desktop and mobile.
 
