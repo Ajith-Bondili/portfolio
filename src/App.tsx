@@ -10,7 +10,7 @@ import type {
   LeetCodeData,
   RecentTracksData,
 } from "./types/indexs";
-import { asciiList, experiencesData, fallbackRecentTracks, personalInfo, projectsData } from "./data/info";
+import { experiencesData, fallbackRecentTracks, personalInfo, projectsData } from "./data/info";
 import DitherBackground from "./components/effects/DitherBackground";
 import MeWindow from "./components/windows/MeWindow";
 import ExperienceWindow from "./components/windows/ExperienceWindow";
@@ -68,9 +68,6 @@ function App() {
   });
 
   const [time, setTime] = useState(new Date());
-  const [selectedAscii] = useState(
-    asciiList[Math.floor(Math.random() * Math.max(1, asciiList.length))] || "",
-  );
 
   const [selectedWindow, setSelectedWindow] = useState<WindowKey>("me");
   const [expandWindow, setExpandWindow] = useState<ExpandKey>("");
@@ -610,7 +607,6 @@ function App() {
               selected={selectedWindow === "me"}
               expanded={false}
               className="layout-me"
-              asciiArt={selectedAscii}
               timeLabel={time.toLocaleTimeString()}
               personalInfo={personalInfo}
               visitorGreeting={visitorGreeting}
@@ -721,7 +717,6 @@ function App() {
               <MeWindow
                 selected={selectedWindow === "me"}
                 expanded
-                asciiArt={selectedAscii}
                 timeLabel={time.toLocaleTimeString()}
                 personalInfo={personalInfo}
                 visitorGreeting={visitorGreeting}

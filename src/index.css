@@ -358,12 +358,13 @@ input {
   }
 }
 
-.ascii-preview {
-  margin: 0;
-  font-size: clamp(0.13rem, 0.4vw, 0.32rem);
-  line-height: 1.15;
-  color: color-mix(in srgb, var(--text), transparent 30%);
-  max-height: 13rem;
+.ascii-effect-preview {
+  position: relative;
+  width: 100%;
+  min-height: clamp(170px, 30vh, 260px);
+  max-height: 18rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
   overflow: hidden;
 }
 

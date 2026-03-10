@@ -1,4 +1,5 @@
 import WindowShell from "./WindowShell";
+import { EffectScene } from "../effects/effect-scene";
 
 interface SchoolInfo {
   name: string;
@@ -21,7 +22,6 @@ interface MeWindowProps {
   selected: boolean;
   expanded: boolean;
   className?: string;
-  asciiArt: string;
   timeLabel: string;
   personalInfo: PersonalInfoModel;
   visitorGreeting?: string;
@@ -34,7 +34,6 @@ export default function MeWindow({
   selected,
   expanded,
   className,
-  asciiArt,
   timeLabel,
   personalInfo,
   visitorGreeting,
@@ -56,9 +55,7 @@ export default function MeWindow({
     >
       {!expanded ? (
         <div className="me-compact-grid">
-          <pre className="ascii-preview" aria-hidden>
-            {asciiArt}
-          </pre>
+          <EffectScene />
 
           <div className="info-block">
             <p className="accent-line">
