@@ -10,8 +10,8 @@ function TerminalIconModel() {
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
-    groupRef.current.rotation.y += delta * 0.35;
-    groupRef.current.rotation.x += delta * 0.12;
+    groupRef.current.rotation.y += delta * 0.2;
+    groupRef.current.rotation.x += delta * 0.06;
   });
 
   return (
@@ -84,7 +84,7 @@ export function EffectScene() {
 
   return (
     <div ref={containerRef} className="ascii-effect-preview" aria-hidden>
-      <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
+      <Canvas camera={{ position: [0, 0, 4.6], fov: 45 }}>
         <color attach="background" args={["#5c5c5c"]} />
 
         <hemisphereLight intensity={0.5} />
@@ -98,24 +98,24 @@ export function EffectScene() {
         <EffectComposer>
           <AsciiEffect
             style="standard"
-            cellSize={4}
+            cellSize={2.2}
             invert={false}
             color
             resolution={resolution}
             mousePos={mousePos}
             postfx={{
-              scanlineIntensity: 0,
-              scanlineCount: 200,
+              scanlineIntensity: 0.02,
+              scanlineCount: 220,
               targetFPS: 0,
               jitterIntensity: 0,
               jitterSpeed: 1,
               mouseGlowEnabled: false,
               mouseGlowRadius: 200,
               mouseGlowIntensity: 1.5,
-              vignetteIntensity: 0,
-              vignetteRadius: 0.8,
+              vignetteIntensity: 0.06,
+              vignetteRadius: 1.2,
               colorPalette: "original",
-              curvature: 0,
+              curvature: 0.01,
               aberrationStrength: 0,
               noiseIntensity: 0,
               noiseScale: 1,
@@ -125,8 +125,8 @@ export function EffectScene() {
               waveSpeed: 1,
               glitchIntensity: 0,
               glitchFrequency: 0,
-              brightnessAdjust: 0,
-              contrastAdjust: 1,
+              brightnessAdjust: 0.02,
+              contrastAdjust: 1.06,
             }}
           />
         </EffectComposer>
