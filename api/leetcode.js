@@ -12,17 +12,30 @@ function isValidLeetCodeUsername(username) {
   return /^[a-zA-Z0-9_-]{1,30}$/.test(username);
 }
 
-function toUtcDateKey(date) {
+function toLocalDateKey(date) {
   return [
-    date.getUTCFullYear(),
-    String(date.getUTCMonth() + 1).padStart(2, "0"),
-    String(date.getUTCDate()).padStart(2, "0"),
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
   ].join("-");
 }
 
-function timestampToUtcDateKey(timestamp) {
+function timestampToLocalDateKey(timestamp) {
   const date = new Date(timestamp * 1000);
-  return toUtcDateKey(date);
+  return toLocalDateKey(date);
+}
+
+function localDateKeyToDate(dateKey) {
+  const [yearRaw, monthRaw, dayRaw] = dateKey.split("-");
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  const day = Number(dayRaw);
+
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+
+  return new Date(year, month - 1, day);
 }
 
 function normalizeSubmissionCalendar(rawCalendar) {
@@ -50,12 +63,12 @@ function calculateSubmissionInsights(submissionCalendar) {
   const dayMap = new Map();
 
   for (const [timestamp, count] of Object.entries(submissionCalendar)) {
-    const key = timestampToUtcDateKey(Number(timestamp));
+    const key = timestampToLocalDateKey(Number(timestamp));
     dayMap.set(key, (dayMap.get(key) || 0) + Number(count));
   }
 
   const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
 
   function rangeTotals(days) {
     let total = 0;
@@ -63,8 +76,8 @@ function calculateSubmissionInsights(submissionCalendar) {
 
     for (let i = 0; i < days; i += 1) {
       const current = new Date(today);
-      current.setUTCDate(today.getUTCDate() - i);
-      const count = dayMap.get(toUtcDateKey(current)) || 0;
+      current.setDate(today.getDate() - i);
+      const count = dayMap.get(toLocalDateKey(current)) || 0;
       total += count;
       if (count > 0) activeDays += 1;
     }
@@ -75,10 +88,10 @@ function calculateSubmissionInsights(submissionCalendar) {
   let currentSubmissionStreak = 0;
   const streakCursor = new Date(today);
   for (let i = 0; i < 3660; i += 1) {
-    const count = dayMap.get(toUtcDateKey(streakCursor)) || 0;
+    const count = dayMap.get(toLocalDateKey(streakCursor)) || 0;
     if (count <= 0) break;
     currentSubmissionStreak += 1;
-    streakCursor.setUTCDate(streakCursor.getUTCDate() - 1);
+    streakCursor.setDate(streakCursor.getDate() - 1);
   }
 
   const activeDayKeys = [...dayMap.entries()]
@@ -91,7 +104,8 @@ function calculateSubmissionInsights(submissionCalendar) {
   let previousDate = null;
 
   for (const key of activeDayKeys) {
-    const currentDate = new Date(`${key}T00:00:00Z`);
+    const currentDate = localDateKeyToDate(key);
+    if (!currentDate) continue;
 
     if (previousDate) {
       const diff = Math.round((currentDate.getTime() - previousDate.getTime()) / 86400000);

@@ -30,19 +30,19 @@ type ChatMessage = {
 
 const NEXT_WINDOW: Record<WindowKey, WindowKey> = {
   me: "music",
-  music: "experience",
-  experience: "coding",
-  coding: "cli",
+  music: "cli",
   cli: "projects",
-  projects: "me",
+  projects: "experience",
+  experience: "coding",
+  coding: "me",
 };
 
 const PREV_WINDOW: Record<WindowKey, WindowKey> = {
-  me: "projects",
-  projects: "cli",
-  cli: "coding",
+  me: "coding",
   coding: "experience",
-  experience: "music",
+  experience: "projects",
+  projects: "cli",
+  cli: "music",
   music: "me",
 };
 
@@ -134,7 +134,7 @@ function App() {
         "build thoughtful ai products, level up as an engineer, and ship impactful systems with clean ux.",
       funfact:
         "i enjoy blending minimal design with technical depth and keyboard-first experiences.",
-      contact: `${personalInfo.email} | github: ${personalInfo.socialLinks.github} | linkedin: ${personalInfo.socialLinks.linkedin}`,
+      contact: `${personalInfo.email} | github: ${personalInfo.socialLinks.github} | linkedin: ${personalInfo.socialLinks.linkedin} | x: ${personalInfo.socialLinks.x}`,
       help:
         "available commands: about, experience, projects, skills, goals, funfact, contact | slash: /help, /theme, /clear",
     } as const;

@@ -14,6 +14,13 @@ const LeetCodeCalendar: React.FC<SubmissionCalendarProps> = ({
   viewMode = "strip",
   isDark = true,
 }) => {
+  const toLocalDateKey = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
   const dayMap = new Map<string, number>();
 
   Object.entries(submissionCalendar).forEach(([timestamp, rawCount]) => {
@@ -21,12 +28,12 @@ const LeetCodeCalendar: React.FC<SubmissionCalendarProps> = ({
     const parsedCount = Number(rawCount);
     if (!Number.isFinite(parsedTimestamp) || !Number.isFinite(parsedCount)) return;
 
-    const key = new Date(parsedTimestamp * 1000).toISOString().slice(0, 10);
+    const key = toLocalDateKey(new Date(parsedTimestamp * 1000));
     dayMap.set(key, (dayMap.get(key) || 0) + parsedCount);
   });
 
   const getSubmissionCount = (date: Date) => {
-    const key = date.toISOString().slice(0, 10);
+    const key = toLocalDateKey(date);
     return dayMap.get(key) || 0;
   };
 
@@ -48,22 +55,22 @@ const LeetCodeCalendar: React.FC<SubmissionCalendarProps> = ({
 
   if (viewMode === "month") {
     const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    const year = today.getUTCFullYear();
-    const month = today.getUTCMonth();
+    today.setHours(0, 0, 0, 0);
+    const year = today.getFullYear();
+    const month = today.getMonth();
 
-    const startDate = new Date(Date.UTC(year, month, 1));
-    const endDate = new Date(Date.UTC(year, month + 1, 0));
+    const startDate = new Date(year, month, 1);
+    const endDate = new Date(year, month + 1, 0);
 
     const daysInMonth: Date[] = [];
     const currentDate = new Date(startDate);
     while (currentDate.getTime() <= endDate.getTime()) {
       daysInMonth.push(new Date(currentDate));
-      currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+      currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    const firstDayOfMonth = startDate.getUTCDay();
-    const monthName = today.toLocaleString("en-US", { month: "long", timeZone: "UTC" });
+    const firstDayOfMonth = startDate.getDay();
+    const monthName = today.toLocaleString("en-US", { month: "long" });
     const daysOfWeek = ["S", "M", "T", "W", "T", "F", "S"];
 
     return (
@@ -86,7 +93,6 @@ const LeetCodeCalendar: React.FC<SubmissionCalendarProps> = ({
               month: "short",
               day: "numeric",
               year: "numeric",
-              timeZone: "UTC",
             });
             return (
               <Tooltip
@@ -94,7 +100,7 @@ const LeetCodeCalendar: React.FC<SubmissionCalendarProps> = ({
                 text={`${count} submissions on ${label}`}
               >
                 <span className={`leetcode-month-cell ${getMonthLevelClassName(count)}`}>
-                  <span>{day.getUTCDate()}</span>
+                  <span>{day.getDate()}</span>
                 </span>
               </Tooltip>
             );
@@ -105,12 +111,12 @@ const LeetCodeCalendar: React.FC<SubmissionCalendarProps> = ({
   }
 
   const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
   const daysInStrip: Date[] = [];
 
   for (let i = 13; i >= 0; i -= 1) {
     const date = new Date(today);
-    date.setUTCDate(today.getUTCDate() - i);
+    date.setDate(today.getDate() - i);
     daysInStrip.push(date);
   }
 
@@ -120,11 +126,10 @@ const LeetCodeCalendar: React.FC<SubmissionCalendarProps> = ({
       <div className="leetcode-strip-grid">
         {daysInStrip.map((day, index) => {
           const count = getSubmissionCount(day);
-          const weekday = ["S", "M", "T", "W", "T", "F", "S"][day.getUTCDay()];
+          const weekday = ["S", "M", "T", "W", "T", "F", "S"][day.getDay()];
           const label = day.toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
-            timeZone: "UTC",
           });
 
           return (
@@ -134,7 +139,7 @@ const LeetCodeCalendar: React.FC<SubmissionCalendarProps> = ({
             >
               <span className={`leetcode-strip-cell ${getStripLevelClassName(count)}`}>
                 <span className="leetcode-strip-weekday">{weekday}</span>
-                <span className="leetcode-strip-day">{day.getUTCDate()}</span>
+                <span className="leetcode-strip-day">{day.getDate()}</span>
               </span>
             </Tooltip>
           );

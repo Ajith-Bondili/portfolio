@@ -25,17 +25,10 @@
 
 ## 6. ASCII/background art
 - [x] Replace current ASCII art with “effecto” computer-style art.
-- [ ] Set background art to effecto version (ASCII or PNG as intended).
-- [ ] Verify it scales well on desktop and mobile.
-
-## 7. Leetcode section
-- [ ] link https://www.notion.so/LeetCode-Practice-Tracker-1fff3d0411df8083a030e93c56bc7eba?source=copy_link for people to view my questions solved and thought processes.
-- [ ] Find out clean way to link it
 
 ### 14-day strip bugs
-- [ ] Fix timezone issue: submissions showing on wrong day (e.g. Thursday submission shows as Friday) — likely UTC vs local timezone mismatch in API response parsing
-- [ ] Fix submission count: currently counting raw submit clicks instead of unique accepted submissions per problem
-- [ ] Fix hover tooltip getting clipped/cutoff by container overflow — make tooltip use `position: fixed` or `z-index` to render above/outside the box
+- [x] Fix timezone issue: submissions showing on wrong day (e.g. Thursday submission shows as Friday) — likely UTC vs local timezone mismatch in API response parsing
+- [x] Fix hover tooltip getting clipped/cutoff by container overflow — make tooltip use `position: fixed` or `z-index` to render above/outside the box
 
 
 ## 9. Mobile responsiveness — remove hardcoded values

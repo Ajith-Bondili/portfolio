@@ -984,6 +984,31 @@ input {
   background: var(--heat-4);
 }
 
+.app-tooltip {
+  position: fixed;
+  z-index: 1000;
+  transform: translateX(-50%);
+  max-width: min(20rem, calc(100vw - 1rem));
+  padding: 0.38rem 0.48rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--text), transparent 82%);
+  background: color-mix(in srgb, var(--bg), black 18%);
+  color: color-mix(in srgb, var(--text), white 2%);
+  font-size: 0.68rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+
+.app-tooltip-above {
+  transform: translate(-50%, -100%);
+}
+
+.app-tooltip-below {
+  transform: translate(-50%, 0);
+}
+
 .leetcode-strip-shell {
   display: grid;
   gap: 0.3rem;

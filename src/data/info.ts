@@ -16,6 +16,7 @@ export const personalInfo = {
   socialLinks: {
     github: "https://github.com/Ajith-Bondili",
     linkedin: "https://www.linkedin.com/in/ajith-bondili/",
+    x: "https://x.com/AjithBondili",
     spotify: "https://open.spotify.com",
     leetcode: "https://leetcode.com/Ajxpert/",
   },
