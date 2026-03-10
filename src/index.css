@@ -161,7 +161,7 @@ input {
 
 .layout-cli {
   grid-area: cli;
-  min-height: 58vh;
+  min-height: clamp(20rem, 52vh, 34rem);
 }
 
 .layout-cli,
@@ -219,6 +219,23 @@ input {
     height: 100%;
     min-height: 0;
     overflow: hidden;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1023px) {
+  .portfolio-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "me music"
+      "experience cli"
+      "projects coding";
+    gap: 0.8rem;
+  }
+
+  .layout-experience,
+  .layout-cli {
+    min-height: clamp(27rem, 68vh, 38rem);
+    max-height: clamp(30rem, 76vh, 42rem);
   }
 }
 
@@ -306,6 +323,16 @@ input {
   border: none;
   display: inline-block;
   padding: 0;
+}
+
+.terminal-dots button.dot {
+  position: relative;
+}
+
+.terminal-dots button.dot::after {
+  content: "";
+  position: absolute;
+  inset: -0.45rem;
 }
 
 .dot-red {
@@ -1417,7 +1444,7 @@ input {
   position: fixed;
   z-index: 50;
   left: 50%;
-  bottom: 0.8rem;
+  bottom: calc(0.8rem + env(safe-area-inset-bottom));
   transform: translateX(-50%);
   display: inline-flex;
   gap: 0.35rem;
@@ -1447,8 +1474,120 @@ input {
 }
 
 @media screen and (max-width: 768px) {
+  .app-content {
+    padding-bottom: calc(5.4rem + env(safe-area-inset-bottom));
+  }
+
+  .workspace-hint {
+    font-size: 0.64rem;
+    padding: 0.33rem 0.58rem;
+  }
+
+  .terminal-window {
+    min-height: 180px;
+  }
+
+  .ascii-effect-preview {
+    min-height: clamp(130px, 24vh, 190px);
+    max-height: min(12rem, 30vh);
+  }
+
+  .horizontal-preview {
+    grid-auto-columns: minmax(200px, 82vw);
+  }
+
+  .split-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.65rem;
+  }
+
+  .split-list {
+    max-height: 13rem;
+    overflow-y: auto;
+    padding-right: 0.1rem;
+  }
+
+  .project-media-full {
+    max-height: min(38vh, 260px);
+  }
+
+  .detail-image {
+    width: clamp(110px, 38vw, 150px);
+    height: clamp(110px, 38vw, 150px);
+  }
+
+  .metric-chip-grid,
+  .difficulty-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .leetcode-strip-grid,
+  .leetcode-month-weekdays,
+  .leetcode-month-grid {
+    gap: 0.16rem;
+  }
+
+  .leetcode-strip-cell {
+    min-height: clamp(2.15rem, 9vw, 2.6rem);
+  }
+
+  .leetcode-month-empty,
+  .leetcode-month-cell {
+    min-height: 1.75rem;
+  }
+
+  .list-row,
+  .split-list-item {
+    min-height: 2.75rem;
+  }
+
+  .list-row-has-meta,
+  .split-list-item-has-meta {
+    grid-template-columns: 0.85rem minmax(0, 1fr);
+  }
+
+  .row-meta {
+    white-space: normal;
+  }
+
+  .music-cover-button,
+  .music-preview-inline,
+  .taskbar-icon,
+  .cli-suggestion {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+
+  .music-preview-inline {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .cli-suggestions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   input[type="text"] {
     font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-content {
+    padding-inline: 0.6rem;
+  }
+
+  .horizontal-preview {
+    grid-auto-columns: minmax(180px, 86vw);
+  }
+
+  .leetcode-strip-weekday {
+    font-size: 0.46rem;
+  }
+
+  .leetcode-strip-day,
+  .leetcode-month-cell span {
+    font-size: 0.56rem;
   }
 }
 
