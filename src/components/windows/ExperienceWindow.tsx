@@ -39,6 +39,27 @@ export default function ExperienceWindow({
   onClose,
 }: ExperienceWindowProps) {
   const activeExperience = experiences[activeIndex];
+  const renderLinks = (links: LinkItem[]) => (
+    <div className="link-row">
+      {links.map((link, index) => (
+        <span key={`${link.name}-${link.url}`} className="link-row-item">
+          {index > 0 ? (
+            <span className="link-separator" aria-hidden="true">
+              |
+            </span>
+          ) : null}
+          <a
+            href={link.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="minimal-link"
+          >
+            {link.name}
+          </a>
+        </span>
+      ))}
+    </div>
+  );
 
   return (
     <WindowShell
@@ -113,21 +134,7 @@ export default function ExperienceWindow({
               />
             )}
             <p>{activeExperience.description}</p>
-            {activeExperience.links.length > 0 && (
-              <div className="link-row">
-                {activeExperience.links.map((link) => (
-                  <a
-                    key={link.name}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="minimal-link"
-                  >
-                    {link.name}
-                  </a>
-                ))}
-              </div>
-            )}
+            {activeExperience.links.length > 0 ? renderLinks(activeExperience.links) : null}
           </article>
         </div>
       )}

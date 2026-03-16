@@ -177,6 +177,18 @@ export const projectsData = [
       { name: "GitHub", url: "https://github.com/Ajith-Bondili/Spell-check" },
     ],
   },
+  {
+    title: "Stroop Effect Game ",
+    window: "Stroop Effect Game ",
+    date: "2024",
+    image: "/projects-media/stroop-effect-game.png.png",
+    description:
+      "A psychological test where players must process conflicting information between text and color. It offers different levels of difficulty for solo or for local two-player versus type games. The layout of the game was inspired by the minigame design in Outlast Trials.",
+    links: [
+      { name: "Live", url: "https://stroop-effect-game.vercel.app/" },
+      { name: "GitHub", url: "https://github.com/Ajith-Bondili/Stroop-Effect-Game" },
+    ],
+  }
 ];
 
 // Static fallback when Spotify API is unavailable

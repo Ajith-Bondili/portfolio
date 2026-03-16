@@ -820,6 +820,16 @@ input {
   gap: 0.45rem;
 }
 
+.link-row-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.link-separator {
+  color: var(--muted);
+}
+
 .minimal-link {
   color: var(--link);
   text-decoration: underline;

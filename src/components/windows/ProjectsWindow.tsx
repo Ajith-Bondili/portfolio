@@ -61,6 +61,27 @@ export default function ProjectsWindow({
     .trim()
     .split(". ")[0];
   const activeProjectLinks = activeProject.links.slice(0, 2);
+  const renderLinks = (links: LinkItem[]) => (
+    <div className="link-row">
+      {links.map((link, index) => (
+        <span key={`${link.name}-${link.url}`} className="link-row-item">
+          {index > 0 ? (
+            <span className="link-separator" aria-hidden="true">
+              |
+            </span>
+          ) : null}
+          <a
+            href={link.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="minimal-link"
+          >
+            {link.name}
+          </a>
+        </span>
+      ))}
+    </div>
+  );
 
   return (
     <WindowShell
@@ -137,21 +158,7 @@ export default function ProjectsWindow({
               </div>
             ) : null}
             <p className="project-focus-summary">{activeProjectSummary}</p>
-            {activeProjectLinks.length > 0 ? (
-              <div className="link-row">
-                {activeProjectLinks.map((link) => (
-                  <a
-                    key={link.name}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="minimal-link"
-                  >
-                    {link.name}
-                  </a>
-                ))}
-              </div>
-            ) : null}
+            {activeProjectLinks.length > 0 ? renderLinks(activeProjectLinks) : null}
           </article>
         </div>
       ) : (
@@ -198,21 +205,7 @@ export default function ProjectsWindow({
             {activeProjectMeta ? <p className="muted-text">{activeProjectMeta}</p> : null}
             {renderMedia(activeProject.image, activeProject.video, activeProject.title, "project-media-full")}
             <p>{activeProject.description}</p>
-            {activeProject.links.length > 0 && (
-              <div className="link-row">
-                {activeProject.links.map((link) => (
-                  <a
-                    key={link.name}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="minimal-link"
-                  >
-                    {link.name}
-                  </a>
-                ))}
-              </div>
-            )}
+            {activeProject.links.length > 0 ? renderLinks(activeProject.links) : null}
           </article>
         </div>
       )}
