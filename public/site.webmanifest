@@ -1,0 +1,15 @@
+{
+  "name": "Ajith Bondili",
+  "short_name": "Ajith",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#080808",
+  "theme_color": "#080808",
+  "icons": [
+    {
+      "src": "/terminal.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

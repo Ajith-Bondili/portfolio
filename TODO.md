@@ -9,7 +9,7 @@
 ## 2. Projects section
 - [x] Update `Projects` window with the exact project list to showcase.
 - [x] Ensure each project has: title, short description, tech stack, and link(s).
-- [ ] Add `Stroop Effect Game` to `projectsData` with the same card format (title, date, concise description, GitHub + live link, image later).
+- [x] Add `Stroop Effect Game` to `projectsData` with the same card format (title, date, concise description, GitHub + live link, image later).
 
 ## 3. Experience section
 - [x] Update `Experience` window content to accurate/latest roles, dates, and impact.
@@ -61,5 +61,6 @@
 
 # Cool add on
 ## 8. Stroop test
-- [ ]. make mini stroop test game in the bottom bar. 
-- [] Add a link to "twitter" in the bottom bar for quick access.
+- [x]. make mini stroop test game in the projects section. 
+- [x] figure out how to take out https://portfolio-zsqo.vercel.app/ or if it even matters
+- [x] Add a link to "twitter" in the bottom bar for quick access.
