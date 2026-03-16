@@ -31,7 +31,7 @@ All top-level state lives in App.tsx via useState/useRef — no state management
 
 ### Data Layer
 
-- **Content** lives in `src/data/info.ts` — `personalInfo`, `experiencesData`, `projectsData`, `asciiList`. Components import from here; never hardcode copy in components.
+- **Content** lives in `src/data/info.ts` — `personalInfo`, `experiencesData`, `projectsData`. Components import from here; never hardcode copy in components.
 - **Runtime data** fetched on mount in App.tsx via `/api/*` endpoints:
   - `/api/github-activity` (6hr cache) — GitHub contributions, streaks
   - `/api/leetcode` (1hr cache) — solved counts, submission calendar

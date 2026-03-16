@@ -8,12 +8,9 @@ interface SchoolInfo {
 }
 
 interface PersonalInfoModel {
-  name: string;
   username: string;
   computerName: string;
   email: string;
-  title: string;
-  location: string;
   aboutMe: string[];
   school?: SchoolInfo;
 }

@@ -27,11 +27,10 @@ All profile content lives in `src/data/info.ts`:
 - `personalInfo`
 - `experiencesData`
 - `projectsData`
-- `asciiList`
 
 ### School Logo
 
-By default the `me` window uses `public/school_logo_dither.svg`.
+The `me` window uses the asset configured in `personalInfo.school.logoDitherPath`.
 Replace this with your own dithered PNG/SVG and update:
 
 ```ts
