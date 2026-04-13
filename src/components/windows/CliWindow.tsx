@@ -56,7 +56,7 @@ export default function CliWindow({
         >
           {messages.length === 0 ? (
             <p className="cli-empty-state">
-              palette: /help, /theme, /clear · quick: about, projects, experience
+              type /help for commands · or ask me anything
             </p>
           ) : null}
 

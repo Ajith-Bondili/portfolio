@@ -136,7 +136,7 @@ function App() {
         "i enjoy blending minimal design with technical depth and keyboard-first experiences.",
       contact: `${personalInfo.email} | github: ${personalInfo.socialLinks.github} | linkedin: ${personalInfo.socialLinks.linkedin} | x: ${personalInfo.socialLinks.x}`,
       help:
-        "available commands: about, experience, projects, skills, goals, funfact, contact | slash: /help, /theme, /clear",
+        "quick facts (type and enter):\n- about\n- experience\n- projects\n- skills\n- goals\n- funfact\n- contact\n\nslash:\n- /help\n- /theme\n- /clear\n\nanything else → i'll answer as me (chat).",
     } as const;
   }, []);
 
