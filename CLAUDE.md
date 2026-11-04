@@ -35,12 +35,12 @@ All top-level state lives in App.tsx via useState/useRef — no state management
 - **Runtime data** fetched on mount in App.tsx via `/api/*` endpoints:
   - `/api/github-activity` (6hr cache) — GitHub contributions, streaks
   - `/api/leetcode` (1hr cache) — solved counts, submission calendar
-  - `/api/recent-tracks` (5min cache, polls every 60s) — Spotify tracks
+  - `/api/recent-tracks` (5min cache, polls every 60s) — last 3 tracks + favorite artist. Reads Last.fm scrobbles when `LASTFM_API_KEY` and `LASTFM_USERNAME` are set, otherwise falls back to the Spotify OAuth path
 - **CLI** (`CliWindow`) handles local commands (about, experience, skills, etc.), slash commands (/help, /theme, /clear), and falls back to `POST /api/ask` (Gemini via OpenAI-compatible endpoint)
 
 ### Serverless API (`api/`)
 
-Handlers are plain JS files in `api/` (Vercel Functions), not in `src/`. They use in-memory Map() caching with TTL. Spotify integration uses a custom token manager with rate-limit tracking (`api/token-manager.js`, `api/rate-limit-manager.js`).
+Handlers are plain JS files in `api/` (Vercel Functions), not in `src/`. They use in-memory Map() caching with TTL. Spotify integration uses a custom token manager with rate-limit tracking (`api/_lib/token-manager.js`, `api/_lib/rate-limit-manager.js`). The Last.fm client lives in `api/_lib/lastfm.js`; files under `api/_lib/` are shared modules, not endpoints.
 
 ### Keyboard Navigation
 
@@ -82,7 +82,13 @@ Required in `.env`:
 GEMINI_API_KEY=...
 ```
 
-Optional (Spotify):
+Optional (Last.fm — preferred music source; a static key that never expires. When both are set, `/api/recent-tracks` reads Last.fm instead of Spotify. Create a key at https://www.last.fm/api/account/create and connect Spotify scrobbling at https://www.last.fm/settings/applications):
+```
+LASTFM_API_KEY=...
+LASTFM_USERNAME=...
+```
+
+Optional (Spotify — legacy fallback when the Last.fm vars are unset):
 ```
 SPOTIFY_CLIENT_ID=...
 SPOTIFY_CLIENT_SECRET=...

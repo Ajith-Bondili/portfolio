@@ -4,9 +4,17 @@ import {
   getRateLimitInfo,
   handleRateLimitResponse,
 } from "./_lib/rate-limit-manager.js";
+import { fetchLastfmMusic, getLastfmConfig } from "./_lib/lastfm.js";
+
+const CACHE_TTL = 1000 * 60 * 5;
 
 let cachedTracks = null;
 let lastFetched = 0;
+
+function rememberTracks(data) {
+  cachedTracks = data;
+  lastFetched = Date.now();
+}
 
 // Fetch preview URL from Spotify embed page (workaround for deprecated preview_url)
 async function fetchPreviewUrlFromEmbed(trackId) {
@@ -31,12 +39,38 @@ async function fetchPreviewUrlFromEmbed(trackId) {
 }
 
 export default async function handler(req, res) {
-  const CACHE_TTL = 1000 * 60 * 5;
-
   if (cachedTracks && Date.now() - lastFetched < CACHE_TTL) {
     return res.status(200).json({ ...cachedTracks, cached: true });
   }
 
+  // Last.fm needs only a static key, so prefer it whenever it is configured.
+  const lastfm = getLastfmConfig();
+  if (lastfm) return handleLastfm(res, lastfm);
+  return handleSpotify(res);
+}
+
+async function handleLastfm(res, config) {
+  try {
+    rememberTracks(await fetchLastfmMusic(config));
+    return res.status(200).json({ ...cachedTracks, cached: false });
+  } catch (error) {
+    console.error("Last.fm fetch failed", error);
+    if (cachedTracks) {
+      return res.status(200).json({
+        ...cachedTracks,
+        cached: true,
+        warning: "Last.fm API error, showing cached data",
+      });
+    }
+
+    return res.status(502).json({
+      error: "Last.fm API error",
+      details: error.message,
+    });
+  }
+}
+
+async function handleSpotify(res) {
   if (isRateLimited()) {
     const rateLimitInfo = getRateLimitInfo();
     if (cachedTracks) {
@@ -120,11 +154,10 @@ export default async function handler(req, res) {
         }
       : null;
 
-    cachedTracks = {
+    rememberTracks({
       tracks: compactTracks,
       favorite_artist: favoriteArtist,
-    };
-    lastFetched = Date.now();
+    });
 
     return res.status(200).json({ ...cachedTracks, cached: false });
   } catch (error) {
