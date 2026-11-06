@@ -32,6 +32,15 @@ export const personalInfo = {
 
 export const experiencesData = [
   {
+    title: "Software Engineer @ Abundant",
+    window: "Abundant",
+    date: "Sept 2026 - Present",
+    description:
+      "Building RL environments for frontier labs. Doing research on multi-turn and multi-agent behaviours, working on SWE Marathon, and building out simulation infra and evals.",
+    image: "/efecto-abundant.png",
+    links: [{ name: "Abundant", url: "https://abundant.ai" }],
+  },
+  {
     title: "Machine Learning Engineering @ Shopify",
     window: "Shopify",
     date: "Jan 2026 - Apr 2026",
