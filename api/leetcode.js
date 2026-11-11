@@ -1,11 +1,26 @@
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
+const MAX_USERNAMES = 5;
 
 const cache = new Map();
 
-function normalizeUsername(value) {
-  if (typeof value === "string") return value.trim();
-  if (Array.isArray(value) && typeof value[0] === "string") return value[0].trim();
-  return "";
+// Accepts "a,b", ["a", "b"], or ["a,b"]. Trims, drops empties, de-dupes case-insensitively.
+function parseUsernames(value) {
+  const items = Array.isArray(value) ? value : [value];
+  const seen = new Set();
+  const usernames = [];
+
+  for (const item of items) {
+    if (typeof item !== "string") continue;
+    for (const piece of item.split(",")) {
+      const trimmed = piece.trim();
+      const key = trimmed.toLowerCase();
+      if (!trimmed || seen.has(key)) continue;
+      seen.add(key);
+      usernames.push(trimmed);
+    }
+  }
+
+  return usernames;
 }
 
 function isValidLeetCodeUsername(username) {
@@ -130,60 +145,124 @@ function calculateSubmissionInsights(submissionCalendar) {
   };
 }
 
-export default async function handler(req, res) {
-  const requested = normalizeUsername(req.query?.username);
-  const username = requested || process.env.LEETCODE_USERNAME || "";
+async function fetchAccountStats(username) {
+  const response = await fetch(`https://leetcode-stats.tashif.codes/${encodeURIComponent(username)}`);
 
-  if (!username || !isValidLeetCodeUsername(username)) {
+  if (!response.ok) {
+    throw new Error(`Failed to fetch LeetCode stats for ${username}: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+
+  // The proxy answers 200 even for unknown users and signals failure in the body.
+  if (data?.status && data.status !== "success") {
+    throw new Error(`LeetCode stats unavailable for ${username}: ${data.message || "unknown error"}`);
+  }
+
+  return {
+    easySolved: Number(data.easySolved) || 0,
+    mediumSolved: Number(data.mediumSolved) || 0,
+    hardSolved: Number(data.hardSolved) || 0,
+    totalSolved: Number(data.totalSolved) || 0,
+    acceptanceRate: Number(data.acceptanceRate) || 0,
+    ranking: Number(data.ranking) || 0,
+    contributionPoints: Number(data.contributionPoints) || 0,
+    totalQuestions: Number(data.totalQuestions) || 0,
+    totalEasy: Number(data.totalEasy) || 0,
+    totalMedium: Number(data.totalMedium) || 0,
+    totalHard: Number(data.totalHard) || 0,
+    submissionCalendar: normalizeSubmissionCalendar(data.submissionCalendar),
+  };
+}
+
+// Combines several accounts into one view. Solved counts and calendars are summed
+// (a problem solved on two accounts counts twice; the proxy exposes no per-problem
+// data to de-duplicate), question totals take the max, ranking takes the best.
+function mergeAccountStats(accounts) {
+  const merged = {
+    easySolved: 0,
+    mediumSolved: 0,
+    hardSolved: 0,
+    totalSolved: 0,
+    acceptanceRate: 0,
+    ranking: 0,
+    contributionPoints: 0,
+    totalQuestions: 0,
+    totalEasy: 0,
+    totalMedium: 0,
+    totalHard: 0,
+    submissionCalendar: {},
+  };
+  let weightedRate = 0;
+  let rateWeight = 0;
+
+  for (const account of accounts) {
+    merged.easySolved += account.easySolved;
+    merged.mediumSolved += account.mediumSolved;
+    merged.hardSolved += account.hardSolved;
+    merged.totalSolved += account.totalSolved;
+    merged.contributionPoints += account.contributionPoints;
+    merged.totalQuestions = Math.max(merged.totalQuestions, account.totalQuestions);
+    merged.totalEasy = Math.max(merged.totalEasy, account.totalEasy);
+    merged.totalMedium = Math.max(merged.totalMedium, account.totalMedium);
+    merged.totalHard = Math.max(merged.totalHard, account.totalHard);
+
+    if (account.ranking > 0 && (merged.ranking === 0 || account.ranking < merged.ranking)) {
+      merged.ranking = account.ranking;
+    }
+
+    // Approximation: weight by solved count, since the proxy doesn't expose raw submission totals.
+    if (account.acceptanceRate > 0 && account.totalSolved > 0) {
+      weightedRate += account.acceptanceRate * account.totalSolved;
+      rateWeight += account.totalSolved;
+    }
+
+    for (const [timestamp, count] of Object.entries(account.submissionCalendar)) {
+      merged.submissionCalendar[timestamp] = (merged.submissionCalendar[timestamp] || 0) + count;
+    }
+  }
+
+  merged.acceptanceRate = rateWeight > 0 ? Math.round((weightedRate / rateWeight) * 100) / 100 : 0;
+
+  return merged;
+}
+
+export default async function handler(req, res) {
+  const requested = parseUsernames(req.query?.username);
+  const usernames = requested.length > 0 ? requested : parseUsernames(process.env.LEETCODE_USERNAME || "");
+
+  if (
+    usernames.length === 0 ||
+    usernames.length > MAX_USERNAMES ||
+    !usernames.every(isValidLeetCodeUsername)
+  ) {
     return res.status(400).json({
       error: "Invalid LeetCode username",
-      message: "Provide a valid username in query param ?username=...",
+      message: `Provide 1-${MAX_USERNAMES} valid usernames in query param ?username=a,b`,
     });
   }
 
-  const key = username.toLowerCase();
+  const key = usernames.map((name) => name.toLowerCase()).sort().join(",");
   const cached = cache.get(key);
 
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return res.status(200).json({ ...cached.data, cached: true });
   }
 
-  try {
-    const response = await fetch(`https://leetcode-stats.tashif.codes/${username}`);
+  const results = await Promise.allSettled(usernames.map(fetchAccountStats));
+  const accounts = [];
+  const failed = [];
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch LeetCode stats: ${response.statusText}`);
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled") {
+      accounts.push(result.value);
+    } else {
+      failed.push(usernames[index]);
+      console.error("Error fetching LeetCode stats:", result.reason);
     }
+  });
 
-    const data = await response.json();
-    const submissionCalendar = normalizeSubmissionCalendar(data.submissionCalendar);
-    const insights = calculateSubmissionInsights(submissionCalendar);
-
-    const stats = {
-      easySolved: Number(data.easySolved) || 0,
-      hardSolved: Number(data.hardSolved) || 0,
-      mediumSolved: Number(data.mediumSolved) || 0,
-      totalSolved: Number(data.totalSolved) || 0,
-      acceptanceRate: Number(data.acceptanceRate) || 0,
-      ranking: Number(data.ranking) || 0,
-      contributionPoints: Number(data.contributionPoints) || 0,
-      totalQuestions: Number(data.totalQuestions) || 0,
-      totalEasy: Number(data.totalEasy) || 0,
-      totalMedium: Number(data.totalMedium) || 0,
-      totalHard: Number(data.totalHard) || 0,
-      submissionCalendar,
-      ...insights,
-    };
-
-    cache.set(key, {
-      data: stats,
-      timestamp: Date.now(),
-    });
-
-    return res.status(200).json({ ...stats, cached: false });
-  } catch (error) {
-    console.error("Error fetching LeetCode stats:", error);
-
+  if (accounts.length === 0) {
     if (cached) {
       return res.status(200).json({
         ...cached.data,
@@ -192,9 +271,34 @@ export default async function handler(req, res) {
       });
     }
 
+    const reason = results[0]?.reason;
     return res.status(500).json({
       error: "Internal Server Error",
-      message: error instanceof Error ? error.message : "Unknown error",
+      message: reason instanceof Error ? reason.message : "Unknown error",
     });
   }
+
+  const merged = mergeAccountStats(accounts);
+  const stats = { ...merged, ...calculateSubmissionInsights(merged.submissionCalendar) };
+
+  if (failed.length > 0) {
+    // Prefer complete stale data over fresh partial data, and never cache a partial result.
+    if (cached) {
+      return res.status(200).json({
+        ...cached.data,
+        cached: true,
+        warning: `Could not fetch LeetCode stats for ${failed.join(", ")}; showing cached data`,
+      });
+    }
+
+    return res.status(200).json({
+      ...stats,
+      cached: false,
+      warning: `Could not fetch LeetCode stats for ${failed.join(", ")}; showing partial data`,
+    });
+  }
+
+  cache.set(key, { data: stats, timestamp: Date.now() });
+
+  return res.status(200).json({ ...stats, cached: false });
 }

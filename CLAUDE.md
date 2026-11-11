@@ -34,7 +34,7 @@ All top-level state lives in App.tsx via useState/useRef — no state management
 - **Content** lives in `src/data/info.ts` — `personalInfo`, `experiencesData`, `projectsData`. Components import from here; never hardcode copy in components.
 - **Runtime data** fetched on mount in App.tsx via `/api/*` endpoints:
   - `/api/github-activity` (6hr cache) — GitHub contributions, streaks
-  - `/api/leetcode` (1hr cache) — solved counts, submission calendar
+  - `/api/leetcode` (1hr cache) — solved counts, submission calendar; accepts comma-separated usernames and merges them into one view
   - `/api/recent-tracks` (5min cache, polls every 60s) — last 3 tracks + favorite artist. Reads Last.fm scrobbles when `LASTFM_API_KEY` and `LASTFM_USERNAME` are set, otherwise falls back to the Spotify OAuth path
 - **CLI** (`CliWindow`) handles local commands (about, experience, skills, etc.), slash commands (/help, /theme, /clear), and falls back to `POST /api/ask` (Gemini via OpenAI-compatible endpoint)
 

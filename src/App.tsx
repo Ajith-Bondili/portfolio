@@ -188,7 +188,7 @@ function App() {
         personalInfo.githubUsername,
       )}`;
       const leetUrl = `/api/leetcode?username=${encodeURIComponent(
-        personalInfo.leetcodeUsername,
+        personalInfo.leetcodeUsernames.join(","),
       )}`;
 
       const [githubResult, leetResult] = await Promise.allSettled([
