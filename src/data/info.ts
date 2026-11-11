@@ -14,7 +14,7 @@ export const personalInfo = {
 
   // Usernames for API integrations
   githubUsername: "Ajith-Bondili", // Used in /api/github-activity
-  leetcodeUsername: "Ajxpert", // Used in /api/leetcode to fetch your stats
+  leetcodeUsernames: ["Ajxpert"], // Used in /api/leetcode; multiple usernames are merged into one view
 
   // School identity block for "me" section
   school: {
